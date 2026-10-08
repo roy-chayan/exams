@@ -14,15 +14,15 @@ data/*.js       one file per exam part, e.g. school-18.js
 
 ## Adding a question set
 
-1. Create `data/<name>.js`, for example `data/technical-17.js`:
+1. Create `data/<name>.js`, for example `data/school2-17.js`:
 
    ```js
    window.NTRCA_SETS = window.NTRCA_SETS || {};
-   window.NTRCA_SETS["technical-17"] = {
-     "set": "technical-17",
+   window.NTRCA_SETS["school2-17"] = {
+     "set": "school2-17",
      "questions": [
        {
-         "id": "technical-17-001",
+         "id": "school2-17-001",
          "subject": "gk",
          "question": "বাংলাদেশের জাতীয় ফুল কোনটি?",
          "options": ["শাপলা", "গোলাপ", "বেলি", "জবা"],
@@ -40,12 +40,12 @@ data/*.js       one file per exam part, e.g. school-18.js
 2. Add the name to `data/index.js`:
 
    ```js
-   window.NTRCA_INDEX = ["school-18", "college-18", "technical-17"];
+   window.NTRCA_INDEX = ["school-18", "college-18", "school2-18", "school2-17"];
    ```
 
 3. Open the site and go to the **Files** tab. Every set should show 25 questions per subject. That tab also lists questions the site had to skip (wrong subject, answer out of range) and any file with a typo. A red dot on the tab means something needs fixing.
 
-Sets are grouped by the word before the first `-` (School, College, Technical). A name like `school-18` is shown as "18th NTRCA" under School.
+Sets are grouped by the word before the first `-` (School, College, School-2). Use `school2-` for School-2 (স্কুল পর্যায়-২) files. A name like `school-18` is shown as "18th NTRCA" under School.
 
 ## Putting it on GitHub Pages
 
