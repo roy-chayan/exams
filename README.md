@@ -45,7 +45,7 @@ data/*.js       one file per exam part, e.g. school-18.js
 
 3. Open the site and go to the **Files** tab. Every set should show 25 questions per subject. That tab also lists questions the site had to skip (wrong subject, answer out of range) and any file with a typo. A red dot on the tab means something needs fixing.
 
-Sets are grouped by the word before the first `-` (School, College, School-2). Use `school2-` for School-2 (স্কুল পর্যায়-২) files. A name like `school-18` is shown as "18th NTRCA" under School.
+Name each file `<level>-<exam number>.js`, where the level is `school`, `school2` (স্কুল পর্যায়-২) or `college`, e.g. `school2-15.js`. The set picker shows them as a grid: one row per exam (newest first), one column per level. Click a row label (e.g. "15th") to pick that exam's three papers, or "All" under a column to pick a whole level. Files with other names still work; they're listed under the grid.
 
 ## Putting it on GitHub Pages
 
