@@ -244,7 +244,7 @@ function renderSetPicker() {
   if (!setNames.length) { box.innerHTML = '<p class="empty">No question sets are listed in data/index.js yet.</p>'; return; }
   box.innerHTML = [...groupSets()].map(([g, names]) => `
     <div class="setgroup">
-      <div class="setgroup-head"><span class="eyebrow">${esc(g)}</span><button type="button" class="textbtn" data-toggle></button></div>
+      <div class="setgroup-head"><span class="eyebrow">${esc(g.replace(/(\D)(\d+)$/, "$1-$2"))}</span><button type="button" class="textbtn" data-toggle></button></div>
       <div class="setgrid">${names.map(n => `
         <label class="settile" title="${esc(n)}">
           <input type="checkbox" value="${esc(n)}"${remembered.has(n) ? " checked" : ""}>
@@ -536,7 +536,7 @@ function renderReview() {
     const d = document.createElement("article"); d.className = "ritem";
     d.innerHTML = `<div class="rhead"><span class="rnum">Q${i + 1}</span><span class="chip">${esc(LABEL[q.subject] || q.subject)}</span>` +
       `<span class="status st-${res[i]}">${RESULT_LABEL[res[i]]}</span>${e.flags[i] ? '<span class="status st-f">Marked</span>' : ""}` +
-      `<span class="rsrc">${esc(q.set)} #${esc(q.n)}</span></div><div class="rq"></div><div class="opts"></div>`;
+      `<span class="rsrc" title="${esc(q.set)}.js, question ${esc(q.n)} in the file">${esc(q.id)}</span></div><div class="rq"></div><div class="opts"></div>`;
     d.querySelector(".rq").textContent = q.question;
     const opts = d.querySelector(".opts");
     q.options.forEach((t, j) => {
