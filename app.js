@@ -219,18 +219,29 @@ function pickQuestions(pool, n, mode, stats) {
 }
 
 /* ---------- practice: question sets ---------- */
-function groupSets() {
-  const groups = new Map();
-  setNames.forEach(n => { const g = n.split("-")[0].toLowerCase(); if (!groups.has(g)) groups.set(g, []); groups.get(g).push(n); });
-  return groups;
-}
-
+/* Each NTRCA level gets its own colour (set in style.css) and is always shown with its name too. */
+const LEVELS = {
+  school:  { label: "School",   bn: "স্কুল" },
+  school2: { label: "School-2", bn: "স্কুল-২" },
+  college: { label: "College",  bn: "কলেজ" },
+};
+const LEVEL_ORDER = ["school", "school2", "college"];
+const levelOf = name => String(name).split("-")[0].toLowerCase();
+const levelClass = g => "lv-" + (own(LEVELS, g) ? g : "other");
+const levelLabel = g => (own(LEVELS, g) ? LEVELS[g].label : g.charAt(0).toUpperCase() + g.slice(1).replace(/(\D)(\d+)$/, "$1-$2"));
+const examNo = name => { const m = /^[a-z0-9]+-(\d+)$/i.exec(String(name)); return m ? Number(m[1]) : null; };
 const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
 
-/* "school-18" under the School heading is shown as "18th NTRCA". */
-function tileName(name, group) {
+/* "school-18" is shown as "18th NTRCA". */
+function tileName(name, group = levelOf(name)) {
   const rest = name.toLowerCase().startsWith(group + "-") ? name.slice(group.length + 1) : name;
   return /^\d+$/.test(rest) ? `${ordinal(Number(rest))} NTRCA` : rest || name;
+}
+
+/* A small coloured label for a set, e.g. "School-2 · 18th". */
+function setChip(name) {
+  const g = levelOf(name), exam = tileName(name, g).replace(" NTRCA", "");
+  return `<span class="setchip ${levelClass(g)}" title="${esc(name)}"><i></i>${esc(levelLabel(g))} · ${esc(exam)}</span>`;
 }
 
 function lastTakenBySet() {
@@ -239,46 +250,60 @@ function lastTakenBySet() {
   return last;
 }
 
+/* Sets are shown as a grid: one row per exam (newest first), one column per level.
+   Files that don't follow the "<level>-<number>" pattern are listed underneath. */
 function renderSetPicker() {
   const box = $("sets"), remembered = new Set(getSettings().sets || []);
   if (!setNames.length) { box.innerHTML = '<p class="empty">No question sets are listed in data/index.js yet.</p>'; return; }
-  box.innerHTML = [...groupSets()].map(([g, names]) => `
-    <div class="setgroup">
-      <div class="setgroup-head"><span class="eyebrow">${esc(g.replace(/(\D)(\d+)$/, "$1-$2"))}</span><button type="button" class="textbtn" data-toggle></button></div>
-      <div class="setgrid">${names.map(n => `
-        <label class="settile" title="${esc(n)}">
-          <input type="checkbox" value="${esc(n)}"${remembered.has(n) ? " checked" : ""}>
-          <span class="tick">${CHECK_ICON}</span><span class="when"></span>
-          <span class="name">${esc(tileName(n, g))}</span><span class="meta"></span>
-        </label>`).join("")}
-      </div>
-    </div>`).join("");
-  box.querySelectorAll("[data-toggle]").forEach(b => (b.onclick = () => {
-    const inputs = [...b.closest(".setgroup").querySelectorAll("input")], all = inputs.every(i => i.checked);
-    inputs.forEach(i => (i.checked = !all));
-    updatePool();
-  }));
+  const levels = LEVEL_ORDER.filter(g => setNames.some(n => levelOf(n) === g && examNo(n) !== null));
+  const inGrid = n => levels.includes(levelOf(n)) && examNo(n) !== null;
+  const exams = [...new Set(setNames.filter(inGrid).map(examNo))].sort((a, b) => b - a);
+  const others = setNames.filter(n => !inGrid(n));
+  const cell = (n, extra = "") => `<label class="mx-cell ${levelClass(levelOf(n))}${extra ? " named" : ""}">` +
+    `<input type="checkbox" value="${esc(n)}" aria-label="${esc(levelLabel(levelOf(n)) + " " + tileName(n))}"${remembered.has(n) ? " checked" : ""}>` +
+    `<span class="box">${CHECK_ICON}</span>${extra}</label>`;
+  let html = "";
+  if (exams.length) {
+    html += `<div class="matrix" style="--cols:${levels.length}"><div class="mx-corner">Exam</div>` +
+      levels.map(g => `<div class="mx-head ${levelClass(g)}"><span class="lvname">${esc(levelLabel(g))}</span>` +
+        `<span class="lvbn">${LEVELS[g].bn}</span><button type="button" class="textbtn" data-col="${g}"></button></div>`).join("") +
+      exams.map(x => `<button type="button" class="mx-row" data-row="${x}" title="Select or clear every ${ordinal(x)} NTRCA paper">${ordinal(x)}</button>` +
+        levels.map(g => { const n = setNames.find(s => levelOf(s) === g && examNo(s) === x); return n ? cell(n) : '<span class="mx-empty" aria-hidden="true">—</span>'; }).join("")).join("") +
+      "</div>";
+  }
+  if (others.length) html += `<div class="mx-others">${others.map(n => cell(n, `<span class="oname">${esc(n)}</span>`)).join("")}</div>`;
+  box.innerHTML = html;
+  const gridInputs = () => [...box.querySelectorAll(".matrix input")];
+  const toggle = inputs => { const all = inputs.every(i => i.checked); inputs.forEach(i => (i.checked = !all)); updatePool(); };
+  box.querySelectorAll("[data-col]").forEach(b => (b.onclick = () => toggle(gridInputs().filter(i => levelOf(i.value) === b.dataset.col))));
+  box.querySelectorAll("[data-row]").forEach(b => (b.onclick = () => toggle(gridInputs().filter(i => examNo(i.value) === Number(b.dataset.row)))));
   box.onchange = updatePool;
   refreshSetTiles();
 }
 
 function refreshSetTiles() {
   const last = lastTakenBySet();
-  document.querySelectorAll("#sets .settile").forEach(t => {
-    const input = t.querySelector("input"), name = input.value, info = setInfo[name], when = t.querySelector(".when");
-    t.classList.toggle("on", input.checked);
-    t.classList.toggle("err", !!(info && (info.error || info.problems.length)));
-    t.querySelector(".meta").textContent = !info ? "Loading…" : info.error ? "File has an error"
-      : plural(info.questions.length, "question") + (info.problems.length ? ` · ${info.problems.length} skipped` : "");
-    when.textContent = last[name] ? daysAgo(last[name]) : "New";
-    when.classList.toggle("new", !last[name]);
+  document.querySelectorAll("#sets .mx-cell").forEach(c => {
+    const input = c.querySelector("input"), name = input.value, info = setInfo[name];
+    c.classList.toggle("on", input.checked);
+    c.classList.toggle("err", !!(info && (info.error || info.problems.length)));
+    c.title = `${levelLabel(levelOf(name))} · ${tileName(name)}  (${name})\n` +
+      (!info ? "Loading…" : info.error ? info.error : plural(info.questions.length, "question") + (info.problems.length ? `, ${info.problems.length} skipped` : "")) +
+      (last[name] ? `\nLast taken: ${daysAgo(last[name])}` : "\nNot taken yet");
   });
-  document.querySelectorAll("#sets .setgroup").forEach(g => {
-    const all = [...g.querySelectorAll("input")].every(i => i.checked);
-    g.querySelector("[data-toggle]").textContent = all ? "Clear" : "Select all";
+  const inputs = [...document.querySelectorAll("#sets .matrix input")];
+  document.querySelectorAll("#sets [data-col]").forEach(b => {
+    const ins = inputs.filter(i => levelOf(i.value) === b.dataset.col);
+    b.textContent = ins.length && ins.every(i => i.checked) ? "Clear" : "All";
   });
-  const n = checkedSets().length;
-  $("selCount").textContent = n ? `${n} selected` : "";
+  document.querySelectorAll("#sets [data-row]").forEach(b => {
+    const ins = inputs.filter(i => examNo(i.value) === Number(b.dataset.row));
+    b.classList.toggle("on", ins.length > 0 && ins.every(i => i.checked));
+  });
+  const sel = checkedSets();
+  $("selCount").textContent = sel.length ? `${sel.length} selected` : "";
+  $("selChips").innerHTML = sel.map(setChip).join("");
+  show("selChips", sel.length > 0);
 }
 
 function refreshProblems() {
@@ -341,7 +366,7 @@ function checkResume() {
   const c = store.get(KEY.current, null);
   if (!c || !Array.isArray(c.questions) || !c.questions.length || !Array.isArray(c.answers)) { show("resumeCard", false); return; }
   const left = Math.round((c.endAt - Date.now()) / 1000), done = c.answers.filter(a => a !== null).length;
-  $("resumeInfo").textContent = `${(c.sets || []).join(", ")} · ${done} of ${c.questions.length} answered · ` +
+  $("resumeInfo").textContent = `${(c.sets || []).map(n => `${levelLabel(levelOf(n))} ${tileName(n).replace(" NTRCA", "")}`).join(", ")} · ${done} of ${c.questions.length} answered · ` +
     (left > 0 ? `${fmt(left)} left` : "time is up");
   $("resumeBtn").textContent = left > 0 ? "Resume" : "See result";
   show("resumeCard");
@@ -601,7 +626,7 @@ function renderHistoryList(h) {
     const subj = SUBJECTS.map(s => { const v = x.subj && x.subj[s]; return Array.isArray(v) && v[1] ? `<span>${LABEL[s]} <b>${pct(v[0], v[1])}</b></span>` : ""; }).join("");
     return `<li class="hitem"><div class="hmain">` +
       `<div class="htitle">${esc(isNaN(when) ? "" : when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}${x.mode === "mistakes" ? '<span class="chip plain">Mistakes</span>' : ""}</div>` +
-      `<div class="hsets">${esc(sets.join(" · "))}</div>${subj ? `<div class="hsubj">${subj}</div>` : ""}</div>` +
+      `<div class="hsets">${sets.map(setChip).join("")}</div>${subj ? `<div class="hsubj">${subj}</div>` : ""}</div>` +
       `<div class="hscore"><b>${pct(Number(x.score), Number(x.total))}</b><span>${esc(x.score)}/${esc(x.total)} · ${fmt(Number(x.secs) || 0)}</span>` +
       `${x.neg ? `<span>${esc(x.marks)} marks</span>` : ""}</div></li>`;
   }).join("");
