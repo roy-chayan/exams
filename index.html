@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NTRCA MCQ Practice</title>
+<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233155e0'/><path d='M9 16.5l4.5 4.5L23 11' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="appbar">
+  <div class="appbar-in">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"><svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 10.5l3.5 3.5 7.5-8"/></svg></span>
+      NTRCA Practice
+    </div>
+    <nav class="tabs" id="tabs" aria-label="Sections">
+      <button type="button" data-tab="practice">Practice</button>
+      <button type="button" data-tab="progress">Progress</button>
+      <button type="button" data-tab="files">Files<span class="dot hidden" id="filesDot"></span></button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- PRACTICE -->
+  <section id="practice">
+    <div id="resumeCard" class="card resume hidden">
+      <div>
+        <div class="resume-title">You have an unfinished exam</div>
+        <div id="resumeInfo" class="muted"></div>
+      </div>
+      <div class="btnrow">
+        <button type="button" class="btn primary sm" id="resumeBtn">Resume</button>
+        <button type="button" class="btn ghost sm" id="discardBtn">Discard</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cardhead">
+        <h2 class="cardtitle">Question sets</h2>
+        <span class="muted" id="selCount"></span>
+      </div>
+      <div id="problemNote" class="note warn hidden"></div>
+      <div id="loadErr" class="note bad hidden"></div>
+      <div id="sets"></div>
+    </div>
+
+    <div class="card">
+      <div class="cardhead"><h2 class="cardtitle">Exam settings</h2></div>
+      <div class="fields">
+        <label class="field"><span>Questions</span><input class="input" id="count" type="number" min="1" inputmode="numeric" value="20"></label>
+        <label class="field"><span>Minutes</span><input class="input" id="mins" type="number" min="1" inputmode="numeric" value="20"></label>
+        <label class="field"><span>Minus mark</span>
+          <select class="input" id="neg">
+            <option value="0">None</option>
+            <option value="0.25">−0.25</option>
+            <option value="0.5">−0.5</option>
+            <option value="1">−1</option>
+          </select>
+        </label>
+      </div>
+      <div class="field block">
+        <span>Pick questions</span>
+        <div class="seg" role="radiogroup" aria-label="Pick questions">
+          <label><input type="radio" name="mode" value="random" checked><span>Random</span></label>
+          <label><input type="radio" name="mode" value="fresh"><span>Unseen first</span></label>
+          <label><input type="radio" name="mode" value="mistakes"><span>My mistakes</span></label>
+        </div>
+        <p class="hint" id="modeHelp"></p>
+      </div>
+      <label class="switch"><input type="checkbox" id="group"><span class="track"></span>Group questions by subject</label>
+
+      <div class="startbox">
+        <div class="plan" id="plan"></div>
+        <div class="avail" id="avail"></div>
+        <div id="setupWarn" class="note warn hidden"></div>
+        <button type="button" class="btn primary lg block" id="startBtn">Start exam</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROGRESS -->
+  <section id="progress" class="hidden">
+    <div class="card">
+      <div class="cardhead"><h2 class="cardtitle">By subject</h2><span class="muted" id="subjNote"></span></div>
+      <div id="subjSummary"></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><h2 class="cardtitle">Recent exams</h2><span class="muted" id="histCount"></span></div>
+      <div id="history"></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><h2 class="cardtitle">Backup</h2></div>
+      <p class="hint flush">Scores are saved in this browser only. Export a backup and import it on your other device to move them.</p>
+      <div class="btnrow">
+        <button type="button" class="btn ghost sm" id="exportBtn">Export backup</button>
+        <button type="button" class="btn ghost sm" id="importBtn">Import backup</button>
+        <button type="button" class="btn ghost sm danger" id="clearBtn">Clear all</button>
+        <input type="file" id="importFile" accept=".json,application/json" hidden>
+      </div>
+    </div>
+  </section>
+
+  <!-- FILES -->
+  <section id="files" class="hidden">
+    <div class="card">
+      <div class="cardhead"><h2 class="cardtitle">Question files</h2><span class="muted" id="filesCount"></span></div>
+      <p class="hint flush">A full exam part has 25 questions in each subject; other counts are shown in red.
+        To add a part, put <code>data/&lt;name&gt;.js</code> in the data folder and add its name to <code>data/index.js</code>.</p>
+      <div id="fileTable"></div>
+      <div id="fileIssues"></div>
+    </div>
+  </section>
+
+  <!-- EXAM -->
+  <section id="exam" class="hidden">
+    <div class="exambar">
+      <div class="exambar-in">
+        <div class="qcount">Question <b id="qnum">1</b> of <span id="qtotal">0</span></div>
+        <div class="timer" id="timer">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10.5" r="7"/><path d="M10 6.5v4l2.5 2"/></svg>
+          <span id="timerText">00:00</span>
+        </div>
+        <button type="button" class="btn primary sm" id="submitBtn">Submit</button>
+      </div>
+      <div class="pbar"><span id="pbarFill"></span></div>
+    </div>
+
+    <div id="examWarn" class="note warn hidden"></div>
+
+    <article class="card qcard" id="qcard">
+      <div class="qhead">
+        <span class="chip" id="qtag"></span>
+        <button type="button" class="flagbtn" id="flagBtn">
+          <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17.5V3"/><path class="banner" d="M5 3.5h9.5l-2 3.75 2 3.75H5z"/></svg>
+          <span id="flagLabel">Mark</span>
+        </button>
+      </div>
+      <h2 class="qtext" id="qtext"></h2>
+      <div class="opts" id="opts"></div>
+      <div class="qnav">
+        <button type="button" class="btn ghost" id="prevBtn">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5l-5 5 5 5"/></svg>Previous
+        </button>
+        <button type="button" class="btn ghost" id="nextBtn">
+          Next<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l5 5-5 5"/></svg>
+        </button>
+      </div>
+    </article>
+
+    <details class="card map" id="mapBox">
+      <summary><span class="cardtitle">Question map</span><span class="muted" id="mapInfo"></span></summary>
+      <div class="palette" id="palette"></div>
+      <div class="legend">
+        <span><i class="lg-done"></i>Answered</span>
+        <span><i class="lg-flag"></i>Marked</span>
+        <span><i class="lg-cur"></i>Current</span>
+      </div>
+    </details>
+
+    <div class="examfoot">
+      <button type="button" class="textbtn danger" id="quitBtn">Quit without saving</button>
+      <span class="keys">Keys: 1–4 or A–D answer · ← → move · F mark</span>
+    </div>
+  </section>
+
+  <!-- RESULT -->
+  <section id="result" class="hidden">
+    <div class="card hero">
+      <div class="eyebrow">Your score</div>
+      <div class="hero-value" id="heroPct"></div>
+      <div class="hero-sub" id="heroSub"></div>
+      <div class="statrow" id="heroStats"></div>
+      <button type="button" class="btn primary" id="againBtn">Back to practice</button>
+    </div>
+    <div class="card">
+      <div class="cardhead"><h2 class="cardtitle">By subject</h2></div>
+      <div id="resTiles"></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><h2 class="cardtitle">Review answers</h2><div class="seg sm" id="reviewFilter"></div></div>
+      <div id="review"></div>
+    </div>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
