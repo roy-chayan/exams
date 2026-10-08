@@ -54,3 +54,7 @@ Push this folder to a GitHub repository, then go to **Settings → Pages → Dep
 ## Your data
 
 Scores, the record of which questions you got wrong, and any unfinished exam are stored in the browser that you used. Use **Export backup** and **Import backup** to move them between your phone and laptop.
+
+## Link preview
+
+When the link is shared, apps read the `og:` and `twitter:` tags in `index.html` and show `og-image.png` (1200×630). The URLs in those tags are absolute (`https://roy-chayan.github.io/exams/...`); update them if the repository name changes. Apps cache previews. After changing it, refresh Facebook/Messenger with the [Sharing Debugger](https://developers.facebook.com/tools/debug/) ("Scrape Again"); for WhatsApp, share the link with something new on the end, e.g. `https://roy-chayan.github.io/exams/?v=2`.
