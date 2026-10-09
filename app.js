@@ -164,20 +164,16 @@ function preloadSets() {
   setNames.forEach(n => loadSet(n).catch(() => {}).finally(() => { refreshSetTiles(); refreshProblems(); }));
 }
 
-/* Combines sets into one pool. A question that appears twice (same id, or same text and options) is used once. */
+/* Combines sets into one pool. Every question of every selected set is kept, even when
+   two papers share the same question, so three papers always give the full 300. */
 async function buildPool(names) {
   const results = await Promise.allSettled(names.map(loadSet));
-  const pool = [], ids = new Set(), texts = new Set(), errors = [];
-  let repeats = 0;
+  const pool = [], errors = [];
   results.forEach(r => {
     if (r.status === "rejected") return errors.push(r.reason.message);
-    r.value.questions.forEach(q => {
-      const text = (q.question + "|" + q.options.join("|")).replace(/\s+/g, " ");
-      if (ids.has(q.id) || texts.has(text)) { repeats++; return; }
-      ids.add(q.id); texts.add(text); pool.push(q);
-    });
+    pool.push(...r.value.questions);
   });
-  return { pool, repeats, errors };
+  return { pool, errors };
 }
 
 /* ---------- picking questions ---------- */
@@ -340,10 +336,10 @@ async function updatePool() {
   saveSettings(); refreshSetTiles();
   const names = checkedSets(), token = ++poolToken;
   if (!names.length) { lastPool = null; renderPlan(); return; }
-  const { pool, repeats } = await buildPool(names);
+  const { pool } = await buildPool(names);
   if (token !== poolToken) return;  // the selection changed while loading
   const mode = getMode(), stats = getStats();
-  lastPool = { by: bySubject(pool, mode, stats), stats, mode, repeats };
+  lastPool = { by: bySubject(pool, mode, stats), stats, mode };
   renderPlan();
 }
 
@@ -352,14 +348,13 @@ function renderPlan() {
   $("plan").textContent = `${plural(n, "question")} · ${plural(mins, "minute")}`;
   $("startBtn").disabled = !lastPool;
   if (!lastPool) { $("avail").innerHTML = '<span class="hint">Choose at least one question set above.</span>'; return; }
-  const { by, stats, mode, repeats } = lastPool, per = Math.ceil(n / 4);
+  const { by, stats, mode } = lastPool, per = Math.ceil(n / 4);
   $("avail").innerHTML = `<span class="label">${mode === "mistakes" ? "Past mistakes:" : "Available:"}</span>` +
     SUBJECTS.map(s => {
       const c = by[s].length, short = mode !== "mistakes" && c < per;
       const fresh = mode === "fresh" ? ` <span class="sub">· ${by[s].filter(q => !own(stats, q.id)).length} new</span>` : "";
       return `<span class="pill${short ? " short" : ""}">${LABEL[s]} <b>${c}</b>${fresh}</span>`;
-    }).join("") +
-    (repeats ? `<span class="hint">${plural(repeats, "repeated question")} left out</span>` : "");
+    }).join("");
 }
 
 function checkResume() {
