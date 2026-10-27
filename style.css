@@ -104,11 +104,13 @@ body.in-exam .tabs{display:none}
 .lv-school {--lv:#2f5bea;--lv-soft:#eef2ff;--lv-line:#c9d5ff}
 .lv-school2{--lv:#0f8a6f;--lv-soft:#e4f4ef;--lv-line:#b5e0d3}
 .lv-college{--lv:#9b3dbd;--lv-soft:#f6ecfa;--lv-line:#e3c8ee}
+.lv-bcs    {--lv:#b45309;--lv-soft:#fdf3e4;--lv-line:#f0d3a8}
 .lv-other  {--lv:var(--ink-2);--lv-soft:var(--surface-2);--lv-line:var(--line-2)}
 @media (prefers-color-scheme: dark){
   .lv-school {--lv:#6680f0;--lv-soft:#1c2340;--lv-line:#33407a}
   .lv-school2{--lv:#26a385;--lv-soft:#12302a;--lv-line:#1f5a4c}
   .lv-college{--lv:#b56cdb;--lv-soft:#2c1d36;--lv-line:#553668}
+  .lv-bcs    {--lv:#e0913f;--lv-soft:#33240f;--lv-line:#6b4a1d}
 }
 /* Exam × level grid: a square box with a checkbox for each paper */
 .matrix{display:grid;grid-template-columns:56px repeat(var(--cols),minmax(0,1fr));gap:8px;align-items:center}
@@ -134,6 +136,15 @@ body.in-exam .tabs{display:none}
 .mx-others{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
 .mx-cell.named{width:auto;height:44px;display:flex;gap:8px;padding:0 12px}
 .mx-others .oname{font-size:13px;font-weight:600}
+/* BCS papers: a heading in the level colour, then one labelled box per paper */
+.mx-group{margin-top:18px}
+.mx-ghead{display:flex;align-items:baseline;gap:8px;padding-bottom:6px;margin-bottom:10px;border-bottom:3px solid var(--lv)}
+.mx-ghead .lvname{font-size:15px;font-weight:700;color:var(--lv)}
+.mx-ghead .lvbn{font-size:12px;color:var(--muted)}
+.mx-ghead .textbtn{margin-left:auto;color:var(--lv);padding:1px 6px;font-size:12px}
+.mx-ghead .textbtn:hover{background:var(--lv-soft)}
+.mx-strip{display:flex;flex-wrap:wrap;gap:6px}
+.mx-strip .oname{font-size:13px;font-weight:600}
 @media (max-width:420px){
   .matrix{grid-template-columns:44px repeat(var(--cols),minmax(0,1fr));gap:7px 6px}
   .mx-row{font-size:14px}

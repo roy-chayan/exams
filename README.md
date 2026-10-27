@@ -47,6 +47,8 @@ data/*.js       one file per exam part, e.g. school-18.js
 
 Name each file `<level>-<exam number>.js`, where the level is `school`, `school2` (স্কুল পর্যায়-২) or `college`, e.g. `school2-15.js`. The set picker shows them as a grid: one row per exam (newest first), one column per level. Click a row label (e.g. "15th") to pick that exam's three papers, or "All" under a column to pick a whole level. Files with other names still work; they're listed under the grid.
 
+BCS preliminary papers are named `bcs-<exam number>.js`, e.g. `bcs-50.js`. They hold only the subjects that help NTRCA preparation: Bengali, English, Math, and Bangladesh affairs, international affairs, science and ICT counted as `gk`. They're shown in their own BCS row under the grid, and the Files tab doesn't expect 25 per subject for them.
+
 ## Putting it on GitHub Pages
 
 Push this folder to a GitHub repository, then go to **Settings → Pages → Deploy from a branch**, choose `main` and `/ (root)`. The empty `.nojekyll` file tells GitHub to serve the files as they are.
