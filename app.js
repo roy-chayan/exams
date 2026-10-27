@@ -215,28 +215,32 @@ function pickQuestions(pool, n, mode, stats) {
 }
 
 /* ---------- practice: question sets ---------- */
-/* Each NTRCA level gets its own colour (set in style.css) and is always shown with its name too. */
+/* Each NTRCA level gets its own colour (set in style.css) and is always shown with its name too.
+   BCS preliminary papers ("bcs-50") get a colour too, but are listed in their own row under the grid. */
 const LEVELS = {
   school:  { label: "School",   bn: "স্কুল" },
   school2: { label: "School-2", bn: "স্কুল-২" },
   college: { label: "College",  bn: "কলেজ" },
+  bcs:     { label: "BCS",      bn: "বিসিএস প্রিলিমিনারি" },
 };
-const LEVEL_ORDER = ["school", "school2", "college"];
+const LEVEL_ORDER = ["school", "school2", "college"];   // columns of the NTRCA grid
+const examWord = group => (group === "bcs" ? "BCS" : "NTRCA");
 const levelOf = name => String(name).split("-")[0].toLowerCase();
 const levelClass = g => "lv-" + (own(LEVELS, g) ? g : "other");
 const levelLabel = g => (own(LEVELS, g) ? LEVELS[g].label : g.charAt(0).toUpperCase() + g.slice(1).replace(/(\D)(\d+)$/, "$1-$2"));
 const examNo = name => { const m = /^[a-z0-9]+-(\d+)$/i.exec(String(name)); return m ? Number(m[1]) : null; };
 const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
 
-/* "school-18" is shown as "18th NTRCA". */
+/* "school-18" is shown as "18th NTRCA", "bcs-50" as "50th BCS". */
 function tileName(name, group = levelOf(name)) {
   const rest = name.toLowerCase().startsWith(group + "-") ? name.slice(group.length + 1) : name;
-  return /^\d+$/.test(rest) ? `${ordinal(Number(rest))} NTRCA` : rest || name;
+  return /^\d+$/.test(rest) ? `${ordinal(Number(rest))} ${examWord(group)}` : rest || name;
 }
+const shortName = name => tileName(name).replace(/ (NTRCA|BCS)$/, "");
 
-/* A small coloured label for a set, e.g. "School-2 · 18th". */
+/* A small coloured label for a set, e.g. "School-2 · 18th" or "BCS · 50th". */
 function setChip(name) {
-  const g = levelOf(name), exam = tileName(name, g).replace(" NTRCA", "");
+  const g = levelOf(name), exam = shortName(name);
   return `<span class="setchip ${levelClass(g)}" title="${esc(name)}"><i></i>${esc(levelLabel(g))} · ${esc(exam)}</span>`;
 }
 
@@ -246,15 +250,18 @@ function lastTakenBySet() {
   return last;
 }
 
-/* Sets are shown as a grid: one row per exam (newest first), one column per level.
-   Files that don't follow the "<level>-<number>" pattern are listed underneath. */
+/* NTRCA sets are shown as a grid: one row per exam (newest first), one column per level.
+   BCS papers ("bcs-<number>") follow in a row of their own, newest first.
+   Files that don't follow either pattern are listed underneath. */
 function renderSetPicker() {
   const box = $("sets"), remembered = new Set(getSettings().sets || []);
   if (!setNames.length) { box.innerHTML = '<p class="empty">No question sets are listed in data/index.js yet.</p>'; return; }
   const levels = LEVEL_ORDER.filter(g => setNames.some(n => levelOf(n) === g && examNo(n) !== null));
   const inGrid = n => levels.includes(levelOf(n)) && examNo(n) !== null;
   const exams = [...new Set(setNames.filter(inGrid).map(examNo))].sort((a, b) => b - a);
-  const others = setNames.filter(n => !inGrid(n));
+  const isBcs = n => levelOf(n) === "bcs" && examNo(n) !== null;
+  const bcs = setNames.filter(isBcs).sort((a, b) => examNo(b) - examNo(a));
+  const others = setNames.filter(n => !inGrid(n) && !isBcs(n));
   const cell = (n, extra = "") => `<label class="mx-cell ${levelClass(levelOf(n))}${extra ? " named" : ""}">` +
     `<input type="checkbox" value="${esc(n)}" aria-label="${esc(levelLabel(levelOf(n)) + " " + tileName(n))}"${remembered.has(n) ? " checked" : ""}>` +
     `<span class="box">${CHECK_ICON}</span>${extra}</label>`;
@@ -267,12 +274,17 @@ function renderSetPicker() {
         levels.map(g => { const n = setNames.find(s => levelOf(s) === g && examNo(s) === x); return n ? cell(n) : '<span class="mx-empty" aria-hidden="true">—</span>'; }).join("")).join("") +
       "</div>";
   }
+  if (bcs.length) {
+    html += `<div class="mx-group ${levelClass("bcs")}"><div class="mx-ghead"><span class="lvname">${LEVELS.bcs.label}</span>` +
+      `<span class="lvbn">${LEVELS.bcs.bn}</span><button type="button" class="textbtn" data-col="bcs"></button></div>` +
+      `<div class="mx-strip">${bcs.map(n => cell(n, `<span class="oname">${ordinal(examNo(n))}</span>`)).join("")}</div></div>`;
+  }
   if (others.length) html += `<div class="mx-others">${others.map(n => cell(n, `<span class="oname">${esc(n)}</span>`)).join("")}</div>`;
   box.innerHTML = html;
-  const gridInputs = () => [...box.querySelectorAll(".matrix input")];
+  const gridInputs = () => [...box.querySelectorAll(".matrix input, .mx-group input")];
   const toggle = inputs => { const all = inputs.every(i => i.checked); inputs.forEach(i => (i.checked = !all)); updatePool(); };
   box.querySelectorAll("[data-col]").forEach(b => (b.onclick = () => toggle(gridInputs().filter(i => levelOf(i.value) === b.dataset.col))));
-  box.querySelectorAll("[data-row]").forEach(b => (b.onclick = () => toggle(gridInputs().filter(i => examNo(i.value) === Number(b.dataset.row)))));
+  box.querySelectorAll("[data-row]").forEach(b => (b.onclick = () => toggle([...box.querySelectorAll(".matrix input")].filter(i => examNo(i.value) === Number(b.dataset.row)))));
   box.onchange = updatePool;
   refreshSetTiles();
 }
@@ -288,8 +300,9 @@ function refreshSetTiles() {
       (last[name] ? `\nLast taken: ${daysAgo(last[name])}` : "\nNot taken yet");
   });
   const inputs = [...document.querySelectorAll("#sets .matrix input")];
+  const colInputs = [...document.querySelectorAll("#sets .matrix input, #sets .mx-group input")];
   document.querySelectorAll("#sets [data-col]").forEach(b => {
-    const ins = inputs.filter(i => levelOf(i.value) === b.dataset.col);
+    const ins = colInputs.filter(i => levelOf(i.value) === b.dataset.col);
     b.textContent = ins.length && ins.every(i => i.checked) ? "Clear" : "All";
   });
   document.querySelectorAll("#sets [data-row]").forEach(b => {
@@ -361,7 +374,7 @@ function checkResume() {
   const c = store.get(KEY.current, null);
   if (!c || !Array.isArray(c.questions) || !c.questions.length || !Array.isArray(c.answers)) { show("resumeCard", false); return; }
   const left = Math.round((c.endAt - Date.now()) / 1000), done = c.answers.filter(a => a !== null).length;
-  $("resumeInfo").textContent = `${(c.sets || []).map(n => `${levelLabel(levelOf(n))} ${tileName(n).replace(" NTRCA", "")}`).join(", ")} · ${done} of ${c.questions.length} answered · ` +
+  $("resumeInfo").textContent = `${(c.sets || []).map(n => `${levelLabel(levelOf(n))} ${shortName(n)}`).join(", ")} · ${done} of ${c.questions.length} answered · ` +
     (left > 0 ? `${fmt(left)} left` : "time is up");
   $("resumeBtn").textContent = left > 0 ? "Resume" : "See result";
   show("resumeCard");
@@ -674,9 +687,9 @@ function renderFilesTab() {
       const i = setInfo[n];
       if (!i) return `<tr><td>${esc(n)}</td><td colspan="5" class="muted">Loading…</td><td></td></tr>`;
       if (i.error) return `<tr><td>${esc(n)}</td><td colspan="5"></td><td><span class="status bad">Error</span></td></tr>`;
-      const c = countBySubject(i.questions);
+      const c = countBySubject(i.questions), bcsSet = levelOf(n) === "bcs";   // BCS papers have their own subject counts
       return `<tr><td>${esc(n)}</td><td class="num">${i.questions.length}</td>` +
-        SUBJECTS.map(s => `<td class="num${c[s] === PART_SIZE ? "" : " off"}">${c[s]}</td>`).join("") +
+        SUBJECTS.map(s => `<td class="num${bcsSet || c[s] === PART_SIZE ? "" : " off"}">${c[s]}</td>`).join("") +
         `<td>${i.problems.length ? `<span class="status bad">${i.problems.length} skipped</span>` : '<span class="status ok">OK</span>'}</td></tr>`;
     }).join("") + "</tbody></table></div>";
   $("fileIssues").innerHTML = setNames.filter(n => setInfo[n]).map(n => {
