@@ -88,7 +88,6 @@ body.in-exam .tabs{display:none}
 .pill{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 11px;border-radius:99px;background:var(--surface);border:1px solid var(--line);font-size:13px;color:var(--ink-2);white-space:nowrap}
 .pill b{color:var(--ink);font-weight:600}
 .pill .sub{color:var(--muted)}
-.pill.short{background:var(--mid-soft);border-color:color-mix(in srgb,var(--mid) 35%,transparent)}
 .status{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
 .status.ok,.status.st-r{background:var(--good-soft);color:var(--good)}
 .status.bad,.status.st-w{background:var(--bad-soft);color:var(--bad)}
@@ -149,11 +148,26 @@ body.in-exam .tabs{display:none}
   .matrix{grid-template-columns:44px repeat(var(--cols),minmax(0,1fr));gap:7px 6px}
   .mx-row{font-size:14px}
 }
+
 .setchip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:99px;border:1px solid var(--lv-line);background:var(--lv-soft);color:var(--ink);font-size:12px;font-weight:600;white-space:nowrap}
 .setchip i{width:8px;height:8px;border-radius:50%;background:var(--lv)}
-.selchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
 
 /* ---------- practice: settings ---------- */
+/* Subject chips are light pills: a soft tint and a check when on, plain when off. The count shows what each subject can give. */
+.subjpick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.subjchip{position:relative;display:flex;min-width:0}
+.subjchip input{position:absolute;opacity:0;pointer-events:none}
+.subjchip span{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 10px;border:1px solid var(--line-2);border-radius:99px;background:transparent;color:var(--muted);font-size:14px;font-weight:600;cursor:pointer;user-select:none;white-space:nowrap;transition:border-color .15s,background .15s,color .15s}
+.subjchip span::before{content:"";flex:none;display:none;width:14px;height:14px;background:var(--brand);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.5 3.5 7.5-8' fill='none' stroke='black' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4.5 10.5l3.5 3.5 7.5-8' fill='none' stroke='black' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}
+.subjchip span:hover{border-color:var(--brand)}
+.subjchip input:checked+span{border-color:transparent;background:var(--brand-soft);color:var(--ink)}
+.subjchip input:checked+span:hover{border-color:var(--brand)}
+.subjchip input:checked+span::before{display:block}
+.subjchip input:focus-visible+span{outline:2px solid var(--brand);outline-offset:2px}
+.subjchip .cnt:empty{display:none}
+.subjchip .cnt{font-size:13px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.subjchip.short .cnt{color:var(--mid);font-weight:600}
+@media (max-width:480px){ .subjpick{grid-template-columns:repeat(2,minmax(0,1fr))} }
 .fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
 .field>span{font-size:13px;font-weight:600;color:var(--ink-2)}
@@ -169,10 +183,11 @@ select.input{appearance:none;-webkit-appearance:none;padding-right:30px;cursor:p
 .switch input:checked+.track::after{transform:translateX(16px)}
 .switch input:focus-visible+.track{outline:2px solid var(--brand);outline-offset:2px}
 .startbox{margin:22px -20px -20px;padding:18px 20px 20px;background:var(--surface-2);border-top:1px solid var(--line);border-radius:0 0 var(--radius) var(--radius)}
-.plan{font-size:16px;font-weight:600}
-.avail{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:10px 0 16px}
-.avail .label{font-size:13px;color:var(--muted);margin-right:2px}
-.avail .hint{margin:0 0 0 4px}
+.selline{font-size:13px;color:var(--muted);margin-bottom:3px}
+.selline .lv{color:var(--lv);font-weight:600}
+.plan{font-size:16px;font-weight:600;margin-bottom:16px}
+.plan span{white-space:nowrap}
+.plannote{font-size:13px;color:var(--mid);margin:-10px 0 16px}
 
 /* ---------- progress ---------- */
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
@@ -296,3 +311,12 @@ details.map[open] summary::after{transform:rotate(225deg) translateY(-1px)}
   .hero-value{font-size:48px}
   .btn{padding:0 14px}
 }
+
+/* ---------- installable app & offline ---------- */
+.install{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.install img{display:block;flex:none;width:44px;height:44px}
+.install-text{flex:1;min-width:180px}
+.install-title{font-weight:600;margin-bottom:2px}
+.offline-chip{display:inline-flex;align-items:center;height:22px;padding:0 9px;margin-left:2px;border-radius:99px;border:1px solid color-mix(in srgb,var(--mid) 35%,transparent);background:var(--mid-soft);color:var(--mid);font-size:12px;font-weight:600}
+.updatebar{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:12px;max-width:calc(100% - 32px);padding:10px 10px 10px 16px;border-radius:14px;background:var(--ink);color:var(--bg);font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+.updatebar .btn{flex:none}

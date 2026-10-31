@@ -10,6 +10,8 @@ style.css       look (light and dark mode)
 app.js          all the logic
 data/index.js   list of question sets shown on the page
 data/*.js       one file per exam part, e.g. school-18.js
+sw.js           offline support (keeps a copy of the site on the device)
+manifest.webmanifest, icons/   lets phones install it like an app
 ```
 
 ## Adding a question set
@@ -52,6 +54,16 @@ BCS preliminary papers are named `bcs-<exam number>.js`, e.g. `bcs-50.js`. They 
 ## Putting it on GitHub Pages
 
 Push this folder to a GitHub repository, then go to **Settings → Pages → Deploy from a branch**, choose `main` and `/ (root)`. The empty `.nojekyll` file tells GitHub to serve the files as they are.
+
+## Installing and offline use
+
+On Android, open the site in Chrome and tap **Install** on the card at the top, or use **⋮ → Add to Home screen**. On iPhone, open it in Safari and tap **Share → Add to Home Screen**. It then opens full-screen from its own icon.
+
+After one visit with internet, every question set in `data/index.js` is saved on the device, so practice works with no connection. An "Offline" badge appears next to the title while there's no internet.
+
+When you push new or changed files, a device that's online gets them in the background and shows **"New questions or updates are ready. Refresh"** (not during an exam). New set files work as long as they're listed in `data/index.js`. You don't need to change `sw.js` for normal updates; change `CACHE` in it only if you want every device to throw away its saved copy and download everything again.
+
+Offline support needs `https://` (GitHub Pages) or `localhost`; opening `index.html` by double-click works as before, just without it.
 
 ## Your data
 

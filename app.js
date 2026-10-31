@@ -7,15 +7,17 @@ const LABEL = { gk: "GK", math: "Math", english: "English", bengali: "Bengali" }
 const SUBJECT_ALIAS = { gk: "gk", "general knowledge": "gk", math: "math", maths: "math", mathematics: "math",
   english: "english", eng: "english", bengali: "bengali", bangla: "bengali", bn: "bengali" };
 const ANSWER_LETTER = { a: 0, b: 1, c: 2, d: 3, "ক": 0, "খ": 1, "গ": 2, "ঘ": 3 };
-const KEY = { history: "ntrca_history", stats: "ntrca_stats", current: "ntrca_current", settings: "ntrca_settings" };
+const KEY = { history: "ntrca_history", stats: "ntrca_stats", current: "ntrca_current", settings: "ntrca_settings", install: "ntrca_install_hidden" };
 const HISTORY_MAX = 200;   // attempts kept in this browser
 const HISTORY_SHOWN = 15;  // exams listed before "Show all"
 const RECENT = 6;          // "last 6 exams" is about one week of practice
 const PART_SIZE = 25;      // questions per subject in one full exam part
 const FROM_DISK = location.protocol === "file:";
-const BUST = FROM_DISK ? "" : "?v=" + Date.now();  // on GitHub Pages, always load the newest data files
+// Without the offline helper (sw.js), add a timestamp so GitHub Pages always sends the newest data files.
+// With it, the helper keeps a saved copy and checks for newer versions itself.
+const BUST = FROM_DISK || (navigator.serviceWorker && navigator.serviceWorker.controller) ? "" : "?v=" + Date.now();
 const MODE_HELP = {
-  random: "Equal numbers from GK, Math, English and Bengali, picked at random.",
+  random: "Picked at random, in equal numbers from each chosen subject.",
   fresh: "Questions you have never seen come first, then the ones you have seen least.",
   mistakes: "Only questions you got wrong or skipped last time. These exams don't count in Progress."
 };
@@ -68,6 +70,7 @@ function showScreen(name) {
   document.body.classList.toggle("in-exam", name === "exam");
   const tab = name === "result" ? "practice" : name;
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  if (updateReady) show("updateBar", name !== "exam");  // don't interrupt an exam with "Refresh"
   window.scrollTo(0, 0);
 }
 
@@ -191,20 +194,20 @@ function bySubject(pool, mode, stats) {
   return by;
 }
 
-function pickQuestions(pool, n, mode, stats) {
-  const by = bySubject(pool, mode, stats), picked = [], notes = [];
+function pickQuestions(pool, n, mode, stats, subjects = SUBJECTS) {
+  const by = bySubject(pool, mode, stats), picked = [], notes = [], k = subjects.length;
   if (mode === "mistakes") {
     // Take one from each subject in turn, so subjects stay even when some have fewer mistakes.
-    const order = shuffle(SUBJECTS), next = {};
-    SUBJECTS.forEach(s => (next[s] = 0));
+    const order = shuffle(subjects), next = {};
+    subjects.forEach(s => (next[s] = 0));
     for (let added = true; added && picked.length < n;) {
       added = false;
       order.forEach(s => { if (picked.length < n && next[s] < by[s].length) { picked.push(by[s][next[s]++]); added = true; } });
     }
     if (picked.length && picked.length < n) notes.push(`You asked for ${n}, but there are only ${picked.length} past mistakes in these sets.`);
   } else {
-    const base = Math.floor(n / 4), bonus = new Set(shuffle(SUBJECTS).slice(0, n % 4));
-    SUBJECTS.forEach(s => {
+    const base = Math.floor(n / k), bonus = new Set(shuffle(subjects).slice(0, n % k));
+    subjects.forEach(s => {
       const want = base + (bonus.has(s) ? 1 : 0), got = Math.min(want, by[s].length);
       if (got < want) notes.push(`${LABEL[s]}: wanted ${want}, only ${by[s].length} available.`);
       picked.push(...by[s].slice(0, got));
@@ -238,10 +241,33 @@ function tileName(name, group = levelOf(name)) {
 }
 const shortName = name => tileName(name).replace(/ (NTRCA|BCS)$/, "");
 
-/* A small coloured label for a set, e.g. "School-2 · 18th" or "BCS · 50th". */
+/* A small coloured label for a set, e.g. "School-2 · 18th" or "BCS · 50th" (used in the exam history). */
 function setChip(name) {
   const g = levelOf(name), exam = shortName(name);
   return `<span class="setchip ${levelClass(g)}" title="${esc(name)}"><i></i>${esc(levelLabel(g))} · ${esc(exam)}</span>`;
+}
+
+/* The chosen sets in one line, e.g. "18th, 17th: School, School-2, College · BCS 50th".
+   Exams with the same levels ticked share one entry; level names keep their colours. */
+function selectionLine(names) {
+  const levels = new Map(), bcs = [], other = [];
+  names.forEach(n => {
+    const g = levelOf(n), no = examNo(n);
+    if (no !== null && LEVEL_ORDER.includes(g)) { if (!levels.has(no)) levels.set(no, []); levels.get(no).push(g); }
+    else if (no !== null && g === "bcs") bcs.push(no);
+    else other.push(n);
+  });
+  const byLevels = new Map();
+  [...levels.keys()].sort((a, b) => b - a).forEach(no => {
+    const key = LEVEL_ORDER.filter(g => levels.get(no).includes(g)).join(",");
+    if (!byLevels.has(key)) byLevels.set(key, []);
+    byLevels.get(key).push(no);
+  });
+  const lv = g => `<span class="lv ${levelClass(g)}">${esc(levelLabel(g))}</span>`;
+  const parts = [...byLevels].map(([key, nos]) => `${nos.map(ordinal).join(", ")}: ${key.split(",").map(lv).join(", ")}`);
+  if (bcs.length) parts.push(`${lv("bcs")} ${bcs.sort((a, b) => b - a).map(ordinal).join(", ")}`);
+  other.forEach(n => parts.push(esc(n)));
+  return parts.join(" · ");
 }
 
 function lastTakenBySet() {
@@ -311,8 +337,6 @@ function refreshSetTiles() {
   });
   const sel = checkedSets();
   $("selCount").textContent = sel.length ? `${sel.length} selected` : "";
-  $("selChips").innerHTML = sel.map(setChip).join("");
-  show("selChips", sel.length > 0);
 }
 
 function refreshProblems() {
@@ -329,11 +353,31 @@ const checkedSets = () => [...document.querySelectorAll("#sets input:checked")].
 
 /* ---------- practice: settings ---------- */
 const getMode = () => (document.querySelector('input[name="mode"]:checked') || {}).value || "random";
+const getSubjects = () => { const l = [...document.querySelectorAll("#subjPick input:checked")].map(i => i.value); return l.length ? l : SUBJECTS.slice(); };
+function setSubjects(list) {
+  const want = Array.isArray(list) && list.some(x => SUBJECTS.includes(x)) ? list : SUBJECTS;
+  document.querySelectorAll("#subjPick input").forEach(i => (i.checked = want.includes(i.value)));
+}
+/* "Bengali only", "GK + Math", or "" when all four subjects are in. */
+const subjectsLabel = list => (!Array.isArray(list) || list.length >= SUBJECTS.length ? "" : list.length === 1 ? `${LABEL[list[0]]} only` : list.map(x => LABEL[x]).join(" + "));
+/* The help lines only appear for choices other than the usual ones (all subjects, Random). */
+function renderSubjHelp() {
+  const l = getSubjects();
+  $("subjHelp").textContent = l.length === SUBJECTS.length ? ""
+    : l.length === 1 ? `Only ${LABEL[l[0]]}: every question comes from this subject.`
+    : `Split equally between ${l.map(x => LABEL[x]).join(", ").replace(/, ([^,]*)$/, " and $1")}.`;
+  show("subjHelp", l.length < SUBJECTS.length);
+}
+function renderModeHelp() {
+  const m = getMode();
+  $("modeHelp").textContent = m === "random" ? "" : MODE_HELP[m];
+  show("modeHelp", m !== "random");
+}
 function setMode(v) { const r = document.querySelector(`input[name="mode"][value="${own(MODE_HELP, v) ? v : "random"}"]`); r.checked = true; }
 
 function saveSettings() {
   const sets = $("sets").querySelector("input") ? checkedSets() : getSettings().sets;  // keep them if the list failed to load
-  store.set(KEY.settings, { count: $("count").value, mins: $("mins").value, neg: $("neg").value, mode: getMode(), group: $("group").checked, sets });
+  store.set(KEY.settings, { count: $("count").value, mins: $("mins").value, neg: $("neg").value, mode: getMode(), subjects: getSubjects(), group: $("group").checked, sets });
 }
 
 function loadSettings() {
@@ -341,8 +385,9 @@ function loadSettings() {
   ["count", "mins", "neg"].forEach(k => { if (s[k] != null) $(k).value = s[k]; });
   if (!$("neg").value) $("neg").value = "0";
   setMode(s.mode);
+  setSubjects(s.subjects); renderSubjHelp();
   $("group").checked = !!s.group;
-  $("modeHelp").textContent = MODE_HELP[getMode()];
+  renderModeHelp();
 }
 
 async function updatePool() {
@@ -356,18 +401,36 @@ async function updatePool() {
   renderPlan();
 }
 
+/* The bottom of the settings card: which sets, what the exam will be, and a warning when a subject runs short.
+   The subject chips show how many questions each subject can give (or how many unseen / past mistakes). */
 function renderPlan() {
   const n = parseInt($("count").value, 10) || 0, mins = parseInt($("mins").value, 10) || 0;
-  $("plan").textContent = `${plural(n, "question")} · ${plural(mins, "minute")}`;
+  const sel = checkedSets(), subjects = getSubjects(), k = subjects.length, base = Math.floor(n / k), top = Math.ceil(n / k);
+  $("selLine").innerHTML = sel.length ? selectionLine(sel) : "Choose at least one question set above.";
   $("startBtn").disabled = !lastPool;
-  if (!lastPool) { $("avail").innerHTML = '<span class="hint">Choose at least one question set above.</span>'; return; }
-  const { by, stats, mode } = lastPool, per = Math.ceil(n / 4);
-  $("avail").innerHTML = `<span class="label">${mode === "mistakes" ? "Past mistakes:" : "Available:"}</span>` +
-    SUBJECTS.map(s => {
-      const c = by[s].length, short = mode !== "mistakes" && c < per;
-      const fresh = mode === "fresh" ? ` <span class="sub">· ${by[s].filter(q => !own(stats, q.id)).length} new</span>` : "";
-      return `<span class="pill${short ? " short" : ""}">${LABEL[s]} <b>${c}</b>${fresh}</span>`;
-    }).join("");
+  const { by, stats, mode } = lastPool || {};
+  let parts = k === 1 ? [plural(n, `${LABEL[subjects[0]]} question`)] : [plural(n, "question"), `${base === top ? base : `${base}–${top}`} per subject`];
+  if (lastPool && mode === "mistakes") {
+    const total = subjects.reduce((t, s) => t + by[s].length, 0);
+    parts = [!total ? "No past mistakes in these sets" : total < n ? `${plural(total, "question")}: all your past mistakes` : `${plural(n, "question")} from ${total} past mistakes`];
+    if (total) parts.push(plural(mins, "minute"));
+  } else parts.push(plural(mins, "minute"));
+  $("plan").innerHTML = parts.map(p => `<span>${esc(p)}</span>`).join(" · ");   // on a phone, the line breaks between parts only
+
+  const short = lastPool && mode !== "mistakes" ? subjects.filter(s => by[s].length < base) : [];
+  $("planNote").textContent = short.length
+    ? `Not enough ${short.map(s => `${LABEL[s]} (${by[s].length})`).join(" and ")} in these sets, so this exam will have fewer than ${n} questions.` : "";
+  show("planNote", short.length > 0);
+
+  document.querySelectorAll("#subjPick label").forEach(l => {
+    const s = l.querySelector("input").value, cnt = l.querySelector(".cnt");
+    l.classList.toggle("short", short.includes(s));
+    if (!lastPool) { cnt.textContent = ""; l.removeAttribute("title"); return; }
+    const c = by[s].length, unseen = mode === "fresh" ? by[s].filter(q => !own(stats, q.id)).length : null;
+    cnt.textContent = unseen === null ? c : `${unseen} new`;
+    l.title = mode === "mistakes" ? `${plural(c, "past mistake")} in the selected sets`
+      : `${plural(c, "question")} in the selected sets` + (unseen === null ? "" : `, ${unseen} not seen yet`);
+  });
 }
 
 function checkResume() {
@@ -395,7 +458,7 @@ function discard() {
 /* ---------- exam ---------- */
 async function start() {
   setNote("setupWarn");
-  const names = checkedSets(), mode = getMode();
+  const names = checkedSets(), mode = getMode(), subjects = getSubjects();
   const n = parseInt($("count").value, 10), mins = parseInt($("mins").value, 10), neg = parseFloat($("neg").value) || 0;
   if (!names.length) return setNote("setupWarn", "Select at least one question set.");
   if (!(n >= 1) || !(mins >= 1)) return setNote("setupWarn", "Enter at least 1 question and 1 minute.");
@@ -407,14 +470,15 @@ async function start() {
   $("startBtn").disabled = false;
   if (errors.length) return setNote("setupWarn", errors.map(esc).join("<br>"));
 
-  const { picked, notes } = pickQuestions(pool, n, mode, getStats());
+  const { picked, notes } = pickQuestions(pool, n, mode, getStats(), subjects);
   if (!picked.length) {
-    return setNote("setupWarn", mode === "mistakes" ? "No past mistakes in the selected sets. Pick “Random” or “Unseen first” instead." : "No questions found in the selected sets.");
+    const what = subjectsLabel(subjects) ? `${subjectsLabel(subjects).replace(" only", "")} questions` : "questions";
+    return setNote("setupWarn", mode === "mistakes" ? "No past mistakes in the selected sets. Pick “Random” or “Unseen first” instead." : `No ${esc(what)} found in the selected sets.`);
   }
   const questions = $("group").checked ? SUBJECTS.flatMap(s => picked.filter(q => q.subject === s)) : picked;
   const now = Date.now();
   exam = { questions, answers: questions.map(() => null), flags: questions.map(() => false), cur: 0,
-    sets: names, mode, neg, notes, startedAt: now, endAt: now + mins * 60000 };
+    sets: names, mode, subjects, neg, notes, startedAt: now, endAt: now + mins * 60000 };
   saveExam(); show("resumeCard", false); openExam();
 }
 
@@ -532,18 +596,19 @@ function finish(auto) {
   const entry = { date: new Date().toISOString(), sets: e.sets, mode: e.mode, score: right, wrong, total: e.questions.length,
     neg: e.neg, marks: round2(right - wrong * e.neg), secs: Math.round((Math.min(Date.now(), e.endAt) - e.startedAt) / 1000),
     subj: Object.fromEntries(SUBJECTS.map(s => [s, [sub[s].r, sub[s].t]])) };
+  if (subjectsLabel(e.subjects)) entry.subjects = e.subjects;
   const h = getHistory(); h.unshift(entry); store.set(KEY.history, h.slice(0, HISTORY_MAX));
 
   showScreen("result");
   $("heroPct").textContent = pct(right, entry.total);
-  $("heroSub").textContent = `${right} of ${entry.total} correct`;
+  $("heroSub").textContent = `${right} of ${entry.total} correct` + (subjectsLabel(e.subjects) ? ` · ${subjectsLabel(e.subjects)}` : "");
   $("heroStats").innerHTML = [
     `<span class="pill">Wrong <b>${wrong}</b></span>`,
     `<span class="pill">Skipped <b>${entry.total - right - wrong}</b></span>`,
     e.neg ? `<span class="pill">Marks <b>${entry.marks}</b></span>` : "",
     `<span class="pill">Time <b>${fmt(entry.secs)}</b> <span class="sub">of ${fmt(Math.round((e.endAt - e.startedAt) / 1000))}</span></span>`
   ].join("");
-  $("resTiles").innerHTML = `<div class="stats">${SUBJECTS.map(s =>
+  $("resTiles").innerHTML = `<div class="stats">${SUBJECTS.filter(s => sub[s].t).map(s =>
     statTile(LABEL[s], sub[s].r, sub[s].t, `<div class="stat-foot">${sub[s].r} of ${sub[s].t} correct</div>`)).join("")}</div>`;
   review = { e, res }; reviewFilter = res.includes("w") ? "w" : "all"; renderReview();
 }
@@ -607,9 +672,11 @@ function renderSubjects(h) {
     return a;
   };
   const rate = v => (v[1] ? v[0] / v[1] : null);
-  const recent = sum(list.slice(0, RECENT)), before = sum(list.slice(RECENT, RECENT * 2)), all = sum(list);
-  const n = Math.min(list.length, RECENT);
-  $("subjNote").textContent = `Last ${plural(n, "exam")}`;
+  // Each subject looks at its own recent exams, so a Bengali-only exam doesn't push GK's history back.
+  const withSubj = s => list.filter(x => Array.isArray(x.subj[s]) && Number(x.subj[s][1]) > 0);
+  const recent = {}, before = {}, all = sum(list);
+  SUBJECTS.forEach(s => { const l = withSubj(s); recent[s] = sum(l.slice(0, RECENT))[s]; before[s] = sum(l.slice(RECENT, RECENT * 2))[s]; });
+  $("subjNote").textContent = `Last ${RECENT} exams with each subject`;
   const tiles = SUBJECTS.map(s => {
     const r = rate(recent[s]), b = rate(before[s]);
     let delta = `${recent[s][0]} of ${recent[s][1]} correct`;
@@ -633,7 +700,7 @@ function renderHistoryList(h) {
     const when = new Date(x.date), sets = Array.isArray(x.sets) ? x.sets : [];
     const subj = SUBJECTS.map(s => { const v = x.subj && x.subj[s]; return Array.isArray(v) && v[1] ? `<span>${LABEL[s]} <b>${pct(v[0], v[1])}</b></span>` : ""; }).join("");
     return `<li class="hitem"><div class="hmain">` +
-      `<div class="htitle">${esc(isNaN(when) ? "" : when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}${x.mode === "mistakes" ? '<span class="chip plain">Mistakes</span>' : ""}</div>` +
+      `<div class="htitle">${esc(isNaN(when) ? "" : when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}${x.mode === "mistakes" ? '<span class="chip plain">Mistakes</span>' : ""}${subjectsLabel(x.subjects) ? `<span class="chip plain">${esc(subjectsLabel(x.subjects))}</span>` : ""}</div>` +
       `<div class="hsets">${sets.map(setChip).join("")}</div>${subj ? `<div class="hsubj">${subj}</div>` : ""}</div>` +
       `<div class="hscore"><b>${pct(Number(x.score), Number(x.total))}</b><span>${esc(x.score)}/${esc(x.total)} · ${fmt(Number(x.secs) || 0)}</span>` +
       `${x.neg ? `<span>${esc(x.marks)} marks</span>` : ""}</div></li>`;
@@ -700,6 +767,48 @@ function renderFilesTab() {
   }).join("");
 }
 
+/* ---------- installable app & offline ---------- */
+let updateReady = false, installEvent = null;
+const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+/* Android/desktop Chrome offer a real install prompt; iPhone Safari needs Share → Add to Home Screen. */
+function renderInstall() {
+  if (FROM_DISK || isStandalone() || store.get(KEY.install, false)) return show("installCard", false);
+  if (installEvent) {
+    $("installHint").textContent = "Opens like an app and works without internet.";
+    show("installBtn"); show("installCard");
+  } else if (isIOS()) {
+    $("installHint").textContent = "In Safari, tap Share and then “Add to Home Screen”. It opens like an app and works without internet.";
+    show("installBtn", false); show("installCard");
+  } else show("installCard", false);
+}
+
+function setupOffline() {
+  const net = () => show("offlineChip", !navigator.onLine);
+  addEventListener("online", net); addEventListener("offline", net); net();
+  addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvent = e; renderInstall(); });
+  addEventListener("appinstalled", () => { installEvent = null; store.set(KEY.install, true); renderInstall(); });
+  $("installBtn").onclick = async () => {
+    if (!installEvent) return;
+    installEvent.prompt();
+    const { outcome } = await installEvent.userChoice;
+    installEvent = null;
+    if (outcome === "accepted") store.set(KEY.install, true);
+    renderInstall();
+  };
+  $("installLater").onclick = () => { store.set(KEY.install, true); renderInstall(); };
+  $("reloadBtn").onclick = () => location.reload();
+  renderInstall();
+  if (FROM_DISK || !("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.onmessage = e => {
+    if (!e.data || e.data.type !== "updated") return;
+    updateReady = true;
+    show("updateBar", !document.body.classList.contains("in-exam"));
+  };
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
 /* ---------- start ---------- */
 async function init() {
   loadSettings(); checkResume(); showScreen("practice"); renderPlan();
@@ -726,12 +835,17 @@ $("quitBtn").onclick = quit;
 $("againBtn").onclick = backToStart;
 $("resumeBtn").onclick = resume;
 $("discardBtn").onclick = discard;
-document.querySelectorAll('input[name="mode"]').forEach(r => (r.onchange = () => { $("modeHelp").textContent = MODE_HELP[getMode()]; updatePool(); }));
+document.querySelectorAll('input[name="mode"]').forEach(r => (r.onchange = () => { renderModeHelp(); updatePool(); }));
 ["count", "mins"].forEach(id => ($(id).oninput = () => { saveSettings(); renderPlan(); }));
+$("subjPick").onchange = e => {
+  if (!document.querySelector("#subjPick input:checked")) e.target.checked = true;  // keep at least one subject
+  renderSubjHelp(); saveSettings(); renderPlan();
+};
 ["neg", "group"].forEach(id => ($(id).onchange = saveSettings));
 $("exportBtn").onclick = exportBackup;
 $("importBtn").onclick = () => $("importFile").click();
 $("importFile").onchange = e => { const f = e.target.files[0]; e.target.value = ""; if (f) importBackup(f); };
 $("clearBtn").onclick = clearAll;
 document.addEventListener("keydown", onKey);
+setupOffline();
 init();
