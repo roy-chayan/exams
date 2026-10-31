@@ -69,7 +69,8 @@ async function saveFonts(cache) {
 
 self.addEventListener("activate", event => {
   event.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k !== CACHE && k !== FONTS) await caches.delete(k);
+    // Other sites on roy-chayan.github.io share this storage, so only remove this app's own old copies.
+    for (const k of await caches.keys()) if (k.startsWith("ntrca-") && k !== CACHE && k !== FONTS) await caches.delete(k);
     await self.clients.claim();
   })());
 });
