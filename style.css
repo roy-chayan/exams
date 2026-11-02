@@ -48,6 +48,10 @@ code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:
 .btnrow{display:flex;gap:8px;flex-wrap:wrap}
 body.in-exam .appbar{position:static}
 body.in-exam .tabs{display:none}
+/* Link to the পড়াশোনা site, above the question sets; styled like the পড়াশোনা site's "টাইমারসহ পরীক্ষা ↗". */
+.studyrow{margin-bottom:12px}
+.studybtn{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border:1px solid var(--brand);border-radius:999px;background:var(--surface);color:var(--brand);font-size:13px;font-weight:600;text-decoration:none}
+.studybtn:hover{background:var(--brand-soft)}
 
 /* ---------- tabs & segmented controls ---------- */
 .tabs,.seg{display:flex;gap:3px;padding:3px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px}
@@ -285,6 +289,7 @@ details.map[open] summary::after{transform:rotate(225deg) translateY(-1px)}
 .hero-value{font-size:56px;font-weight:700;letter-spacing:-.03em;line-height:1.1;margin-top:6px}
 .hero-sub{color:var(--ink-2);margin-top:4px}
 .statrow{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin:18px 0 22px}
+.herobtns{display:flex;justify-content:center;flex-wrap:wrap;gap:8px}
 .ritem{padding:18px 0;border-top:1px solid var(--line)}
 .ritem:first-child{border-top:0;padding-top:0}
 .rhead{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px}
@@ -294,6 +299,8 @@ details.map[open] summary::after{transform:rotate(225deg) translateY(-1px)}
 .ritem .opt{font-size:15px;padding:9px 12px}
 .ritem .letter{width:24px;height:24px;font-size:12px}
 .explain{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--surface-2);font-size:14px;color:var(--ink-2);white-space:pre-line}
+.readlink{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-size:14px;font-weight:600;color:var(--brand);text-decoration:none}
+.readlink:hover{text-decoration:underline}
 
 /* ---------- small screens ---------- */
 @media (max-width:640px){

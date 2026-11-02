@@ -24,6 +24,9 @@ const MODE_HELP = {
 const FILTERS = [["all", "All"], ["w", "Wrong"], ["u", "Skipped"], ["f", "Marked"]];
 const RESULT_LABEL = { r: "Correct", w: "Wrong", u: "Skipped" };
 const SCREENS = ["practice", "progress", "files", "exam", "result"];
+const BOOK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>';
+// The পড়াশোনা site (notes and previous papers) sits next to this one on roy-chayan.github.io.
+const STUDY_URL = "../study/index.html";
 const CHECK_ICON = '<svg viewBox="0 0 20 20" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 10.5l3.5 3.5 7.5-8"/></svg>';
 
 let setNames = [];
@@ -456,6 +459,83 @@ function discard() {
 }
 
 /* ---------- exam ---------- */
+/* ---------- the same exam for a friend ---------- */
+/* A shared link carries the exam itself, so no server is needed:
+     ?t=1.<minutes>.<minus mark × 100>.<sharer's right answers>.<total>.<widths>.<set~set~…>.<codes>
+   Each question is coded as its set's place in the list, then the number at the end of its id
+   (school-18-043 → 43), both in base 36 at the two widths given, so the friend gets the same
+   questions in the same order even if other questions are added to the files later. */
+const qNum = q => { const m = /(\d+)$/.exec(q.id); return m ? Number(m[1]) : NaN; };
+const bnNum = n => String(n).replace(/\d/g, d => "০১২৩৪৫৬৭৮৯"[d]);
+
+function shareLink(e, right) {
+  const sets = [...new Set(e.questions.map(q => q.set))], nums = e.questions.map(qNum);
+  if (!nums.length || nums.some(isNaN)) return null;
+  const sw = sets.length > 36 ? 2 : 1, nw = Math.max(...nums).toString(36).length;
+  const codes = e.questions.map((q, i) => sets.indexOf(q.set).toString(36).padStart(sw, "0") + nums[i].toString(36).padStart(nw, "0")).join("");
+  const mins = Math.max(1, Math.round((e.endAt - e.startedAt) / 60000));
+  // Opened from the computer's disk, the link would be useless to a friend: use the site's address.
+  const base = FROM_DISK ? document.querySelector('link[rel="canonical"]').href : location.origin + location.pathname;
+  return `${base}?t=1.${mins}.${Math.round(e.neg * 100)}.${right}.${e.questions.length}.${sw}${nw}.${sets.join("~")}.${codes}`;
+}
+
+function readShareLink() {
+  const t = new URLSearchParams(location.search).get("t");
+  const m = t && /^1\.(\d+)\.(\d+)\.(\d+)\.(\d+)\.(\d)(\d)\.([a-z0-9~-]+)\.([0-9a-z]+)$/i.exec(t);
+  if (!m) return null;
+  const [, mins, neg, right, total, sw, nw, list, codes] = m, w = +sw + +nw, sets = list.split("~");
+  if (!w || codes.length % w) return null;
+  const items = [];
+  for (let i = 0; i < codes.length; i += w) items.push([sets[parseInt(codes.slice(i, i + +sw), 36)], parseInt(codes.slice(i + +sw, i + w), 36)]);
+  return { items, mins: +mins || 1, neg: +neg / 100, friend: { right: +right, total: +total } };
+}
+
+let sharedExam = null;   // the exam from a friend's link, until it is started or put aside
+
+async function showShareCard(link) {
+  const names = [...new Set(link.items.map(x => x[0]))].filter(n => setNames.includes(n));
+  const loaded = await Promise.allSettled(names.map(loadSet)), byNum = new Map();
+  loaded.forEach(r => { if (r.status === "fulfilled") r.value.questions.forEach(q => byNum.set(q.set + "#" + qNum(q), q)); });
+  const questions = link.items.map(([set, n]) => byNum.get(set + "#" + n)).filter(Boolean), lost = link.items.length - questions.length;
+  if (!questions.length) return;
+  sharedExam = { link, questions };
+  $("shareInfo").textContent = [plural(questions.length, "question"), plural(link.mins, "minute"),
+    link.neg ? `−${link.neg} per wrong answer` : "no minus mark"].join(" · ") + `. Your friend got ${link.friend.right} of ${link.friend.total} right.` +
+    (lost ? ` ${plural(lost, "question")} of it isn't on this site, so yours is shorter.` : "");
+  show("shareCard");
+}
+
+function startShared() {
+  if (!sharedExam) return;
+  if (store.get(KEY.current, null) && !confirm("You have an unfinished exam. Start this one and discard it?")) return;
+  const { link, questions } = sharedExam, now = Date.now();
+  exam = { questions, answers: questions.map(() => null), flags: questions.map(() => false), cur: 0,
+    sets: [...new Set(questions.map(q => q.set))], mode: "shared", subjects: SUBJECTS.filter(s => questions.some(q => q.subject === s)),
+    neg: link.neg, notes: [], startedAt: now, endAt: now + link.mins * 60000, friend: link.friend };
+  putShareAside();
+  saveExam(); show("resumeCard", false); openExam();
+}
+
+function putShareAside() {
+  sharedExam = null; show("shareCard", false);
+  history.replaceState(null, "", location.pathname);
+}
+
+/* Phones open the share sheet (Messenger, WhatsApp, …); elsewhere the message and link are copied. */
+async function shareExam() {
+  const { e, res } = review, right = res.filter(r => r === "r").length, url = shareLink(e, right);
+  if (!url) return;
+  const text = `আমি NTRCA Practice-এ ${bnNum(e.questions.length)}টি প্রশ্নের মধ্যে ${bnNum(right)}টি ঠিক করেছি। একই প্রশ্নে তুমি কত পাও, দেখি!`;
+  if (navigator.share) {
+    try { await navigator.share({ title: "NTRCA Practice", text, url }); return; } catch (err) { if (err.name === "AbortError") return; }
+  }
+  try {
+    await navigator.clipboard.writeText(text + "\n" + url);
+    const b = $("shareBtn"), label = b.textContent;
+    b.textContent = "Link copied ✓"; setTimeout(() => (b.textContent = label), 2500);
+  } catch (err) { prompt("Copy this link and send it:", url); }
+}
+
 async function start() {
   setNote("setupWarn");
   const names = checkedSets(), mode = getMode(), subjects = getSubjects();
@@ -597,17 +677,22 @@ function finish(auto) {
     neg: e.neg, marks: round2(right - wrong * e.neg), secs: Math.round((Math.min(Date.now(), e.endAt) - e.startedAt) / 1000),
     subj: Object.fromEntries(SUBJECTS.map(s => [s, [sub[s].r, sub[s].t]])) };
   if (subjectsLabel(e.subjects)) entry.subjects = e.subjects;
+  if (e.friend) entry.friend = e.friend;
   const h = getHistory(); h.unshift(entry); store.set(KEY.history, h.slice(0, HISTORY_MAX));
 
   showScreen("result");
   $("heroPct").textContent = pct(right, entry.total);
-  $("heroSub").textContent = `${right} of ${entry.total} correct` + (subjectsLabel(e.subjects) ? ` · ${subjectsLabel(e.subjects)}` : "");
+  const f = e.friend, ahead = f ? right - f.right : 0;
+  $("heroSub").textContent = `${right} of ${entry.total} correct` + (subjectsLabel(e.subjects) ? ` · ${subjectsLabel(e.subjects)}` : "") +
+    (!f ? "" : ahead > 0 ? ` · ${ahead} more than your friend` : ahead < 0 ? ` · ${-ahead} behind your friend` : " · same as your friend");
   $("heroStats").innerHTML = [
     `<span class="pill">Wrong <b>${wrong}</b></span>`,
     `<span class="pill">Skipped <b>${entry.total - right - wrong}</b></span>`,
     e.neg ? `<span class="pill">Marks <b>${entry.marks}</b></span>` : "",
-    `<span class="pill">Time <b>${fmt(entry.secs)}</b> <span class="sub">of ${fmt(Math.round((e.endAt - e.startedAt) / 1000))}</span></span>`
+    `<span class="pill">Time <b>${fmt(entry.secs)}</b> <span class="sub">of ${fmt(Math.round((e.endAt - e.startedAt) / 1000))}</span></span>`,
+    f ? `<span class="pill">Friend <b>${f.right}/${f.total}</b></span>` : ""
   ].join("");
+  show("shareBtn", !!shareLink(e, right));
   $("resTiles").innerHTML = `<div class="stats">${SUBJECTS.filter(s => sub[s].t).map(s =>
     statTile(LABEL[s], sub[s].r, sub[s].t, `<div class="stat-foot">${sub[s].r} of ${sub[s].t} correct</div>`)).join("")}</div>`;
   review = { e, res }; reviewFilter = res.includes("w") ? "w" : "all"; renderReview();
@@ -642,6 +727,12 @@ function renderReview() {
       opts.appendChild(optionEl("div", t, j, right ? "right" : mine ? "wrong" : "", right ? (mine ? "Your answer" : "Correct answer") : mine ? "Your answer" : ""));
     });
     if (q.explanation) { const x = document.createElement("div"); x.className = "explain"; x.textContent = q.explanation; d.appendChild(x); }
+    // The পড়াশোনা site ranks its note lines by the words they share with this question and answer.
+    const read = document.createElement("a");
+    read.className = "readlink"; read.target = "_blank"; read.rel = "noopener";
+    read.href = STUDY_URL + "?" + new URLSearchParams({ about: q.question.slice(0, 300), ans: q.options[q.answer], s: q.subject });
+    read.innerHTML = BOOK_ICON + "<span>Read related notes ↗</span>";
+    d.appendChild(read);
     list.appendChild(d);
   });
   if (!list.children.length) list.innerHTML = '<p class="empty">Nothing here.</p>';
@@ -700,7 +791,7 @@ function renderHistoryList(h) {
     const when = new Date(x.date), sets = Array.isArray(x.sets) ? x.sets : [];
     const subj = SUBJECTS.map(s => { const v = x.subj && x.subj[s]; return Array.isArray(v) && v[1] ? `<span>${LABEL[s]} <b>${pct(v[0], v[1])}</b></span>` : ""; }).join("");
     return `<li class="hitem"><div class="hmain">` +
-      `<div class="htitle">${esc(isNaN(when) ? "" : when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}${x.mode === "mistakes" ? '<span class="chip plain">Mistakes</span>' : ""}${subjectsLabel(x.subjects) ? `<span class="chip plain">${esc(subjectsLabel(x.subjects))}</span>` : ""}</div>` +
+      `<div class="htitle">${esc(isNaN(when) ? "" : when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}${x.mode === "mistakes" ? '<span class="chip plain">Mistakes</span>' : x.mode === "shared" ? '<span class="chip plain">From a friend</span>' : ""}${subjectsLabel(x.subjects) ? `<span class="chip plain">${esc(subjectsLabel(x.subjects))}</span>` : ""}</div>` +
       `<div class="hsets">${sets.map(setChip).join("")}</div>${subj ? `<div class="hsubj">${subj}</div>` : ""}</div>` +
       `<div class="hscore"><b>${pct(Number(x.score), Number(x.total))}</b><span>${esc(x.score)}/${esc(x.total)} · ${fmt(Number(x.secs) || 0)}</span>` +
       `${x.neg ? `<span>${esc(x.marks)} marks</span>` : ""}</div></li>`;
@@ -826,6 +917,28 @@ function setupOffline() {
 }
 
 /* ---------- start ---------- */
+/* Links from the পড়াশোনা site: "?sets=school-18" picks that paper (all subjects), "?subject=bengali" picks
+   that subject, keeping the papers already ticked (or every NTRCA paper, if none). The address is then
+   cleaned up, so a reload doesn't apply it again. Returns true for a paper link. */
+function applyLinkParams() {
+  const p = new URLSearchParams(location.search);
+  const sets = (p.get("sets") || "").split(",").filter(n => setNames.includes(n)), subject = p.get("subject");
+  if (!sets.length && !SUBJECTS.includes(subject)) return false;
+  const inputs = [...document.querySelectorAll("#sets input")];
+  if (sets.length) {
+    inputs.forEach(i => (i.checked = sets.includes(i.value)));
+    setSubjects(SUBJECTS);
+  }
+  if (SUBJECTS.includes(subject)) {
+    setSubjects([subject]);
+    if (!inputs.some(i => i.checked)) inputs.forEach(i => (i.checked = levelOf(i.value) !== "bcs"));
+  }
+  renderSubjHelp();
+  history.replaceState(null, "", location.pathname);
+  $("count").closest(".card").scrollIntoView({ block: "start" });
+  return sets.length > 0;
+}
+
 async function init() {
   loadSettings(); checkResume(); showScreen("practice"); renderPlan();
   try {
@@ -834,7 +947,18 @@ async function init() {
       throw new Error(scriptErrors.index ? `It has an error: ${scriptErrors.index}.` : 'It must contain: window.NTRCA_INDEX = ["school-18", "college-18"];');
     }
     setNames = [...new Set(window.NTRCA_INDEX.map(n => String(n).trim().replace(/^data\//, "").replace(/\.js$/i, "")).filter(Boolean))];
-    renderSetPicker(); preloadSets(); updatePool();
+    renderSetPicker();
+    const shared = readShareLink();
+    if (shared) showShareCard(shared);
+    const wholePaper = applyLinkParams();
+    preloadSets();
+    await updatePool();
+    if (wholePaper && lastPool) {
+      // "Take this paper": all of its questions, with the real exam's pace of 1 hour per 100 questions.
+      const n = getSubjects().reduce((t, s) => t + lastPool.by[s].length, 0);
+      $("count").value = n; $("mins").value = Math.max(1, Math.round(n * 0.6));
+      saveSettings(); renderPlan();
+    }
   } catch (e) {
     setNote("loadErr", esc("Could not load data/index.js. " + e.message));
   }
@@ -851,6 +975,9 @@ $("quitBtn").onclick = quit;
 $("againBtn").onclick = backToStart;
 $("resumeBtn").onclick = resume;
 $("discardBtn").onclick = discard;
+$("shareBtn").onclick = shareExam;
+$("shareStart").onclick = startShared;
+$("shareSkip").onclick = putShareAside;
 document.querySelectorAll('input[name="mode"]').forEach(r => (r.onchange = () => { renderModeHelp(); updatePool(); }));
 ["count", "mins"].forEach(id => ($(id).oninput = () => { saveSettings(); renderPlan(); }));
 $("subjPick").onchange = e => {
