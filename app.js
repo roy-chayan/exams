@@ -772,10 +772,26 @@ let updateReady = false, installEvent = null;
 const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
-/* Android/desktop Chrome offer a real install prompt; iPhone Safari needs Share → Add to Home Screen. */
+/* Messenger, Facebook and Instagram open links in their own built-in browser, which can't install
+   web apps. Returns that app's name, or "" in a normal browser. */
+function inAppBrowser() {
+  const ua = navigator.userAgent;
+  return /Orca-Android|MessengerForiOS/i.test(ua) ? "Messenger"
+    : /FB_IAB|FBAN|FBAV/i.test(ua) ? "Facebook"
+    : /Instagram/i.test(ua) ? "Instagram" : "";
+}
+
+/* Android/desktop Chrome offer a real install prompt; iPhone Safari needs Share → Add to Home Screen;
+   an app's built-in browser can only send you to a real browser first. */
 function renderInstall() {
   if (FROM_DISK || isStandalone() || store.get(KEY.install, false)) return show("installCard", false);
-  if (installEvent) {
+  const app = inAppBrowser();
+  if (app) {
+    $("installHint").textContent = isIOS()
+      ? `${app}'s own browser can't install apps. Tap ⋯, choose “Open in Safari” (or “Open in browser”), then Share → “Add to Home Screen”.`
+      : `${app}'s own browser can't install apps. Tap ⋮ at the top right, choose “Open in Chrome” (or “Open in browser”), and install from there.`;
+    show("installBtn", false); show("installCard");
+  } else if (installEvent) {
     $("installHint").textContent = "Opens like an app and works without internet.";
     show("installBtn"); show("installCard");
   } else if (isIOS()) {
