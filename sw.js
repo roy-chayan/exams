@@ -4,7 +4,7 @@
    for a newer version in the background. When something changed, open pages are told,
    so they can offer a "Refresh". Bump CACHE only to throw away everything that was saved. */
 const CACHE = "ntrca-v1";
-const FONTS = "ntrca-fonts-v1";
+const FONTS = "ntrca-fonts-v2";   // v2: Bengali font changed from Hind Siliguri to Noto Sans Bengali
 const SHELL = ["index.html", "app.js", "style.css", "manifest.webmanifest", "data/index.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "apple-touch-icon.png"];
 
