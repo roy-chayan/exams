@@ -23,7 +23,7 @@ const MODE_HELP = {
 };
 const FILTERS = [["all", "All"], ["w", "Wrong"], ["u", "Skipped"], ["f", "Marked"]];
 const RESULT_LABEL = { r: "Correct", w: "Wrong", u: "Skipped" };
-const SCREENS = ["practice", "progress", "files", "exam", "result"];
+const SCREENS = ["practice", "subjects", "progress", "files", "exam", "result"];
 const BOOK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>';
 // The পড়াশোনা site (notes and previous papers) sits next to this one on roy-chayan.github.io.
 const STUDY_URL = "../study/index.html";
@@ -440,7 +440,7 @@ function checkResume() {
   const c = store.get(KEY.current, null);
   if (!c || !Array.isArray(c.questions) || !c.questions.length || !Array.isArray(c.answers)) { show("resumeCard", false); return; }
   const left = Math.round((c.endAt - Date.now()) / 1000), done = c.answers.filter(a => a !== null).length;
-  $("resumeInfo").textContent = `${(c.sets || []).map(n => `${levelLabel(levelOf(n))} ${shortName(n)}`).join(", ")} · ${done} of ${c.questions.length} answered · ` +
+  $("resumeInfo").textContent = `${c.title || (c.sets || []).map(n => `${levelLabel(levelOf(n))} ${shortName(n)}`).join(", ")} · ${done} of ${c.questions.length} answered · ` +
     (left > 0 ? `${fmt(left)} left` : "time is up");
   $("resumeBtn").textContent = left > 0 ? "Resume" : "See result";
   show("resumeCard");
@@ -677,6 +677,7 @@ function finish(auto) {
     neg: e.neg, marks: round2(right - wrong * e.neg), secs: Math.round((Math.min(Date.now(), e.endAt) - e.startedAt) / 1000),
     subj: Object.fromEntries(SUBJECTS.map(s => [s, [sub[s].r, sub[s].t]])) };
   if (subjectsLabel(e.subjects)) entry.subjects = e.subjects;
+  if (e.title) entry.title = e.title;   // topic exams from the Subjects tab, e.g. "Math: সমাস, সন্ধি"
   if (e.friend) entry.friend = e.friend;
   const h = getHistory(); h.unshift(entry); store.set(KEY.history, h.slice(0, HISTORY_MAX));
 
@@ -706,6 +707,16 @@ function statTile(label, r, t, footHtml) {
     `<div class="meter"><span style="width:${p || 0}%"></span></div>${footHtml}</div>`;
 }
 
+/* The question's own explanation plus the worked solution from the পড়াশোনা notes (data/topics-<subject>.js,
+   by question id). A note often repeats the explanation word for word; it is then shown once. */
+function explanationOf(q) {
+  const t = window.NTRCA_TOPICS && window.NTRCA_TOPICS[q.subject], sol = (t && t.solutions && own(t.solutions, q.id)) || "";
+  const mine = q.explanation || "", flat = s => s.replace(/\s+/g, " ").trim();
+  if (!sol || flat(mine).includes(flat(sol))) return mine;
+  if (!mine || flat(sol).includes(flat(mine))) return sol;
+  return mine + "\n\n" + sol;
+}
+
 function renderReview() {
   const { e, res } = review;
   const match = (k, i) => k === "all" || (k === "f" ? e.flags[i] : res[i] === k);
@@ -726,7 +737,8 @@ function renderReview() {
       const mine = e.answers[i] === j, right = j === q.answer;
       opts.appendChild(optionEl("div", t, j, right ? "right" : mine ? "wrong" : "", right ? (mine ? "Your answer" : "Correct answer") : mine ? "Your answer" : ""));
     });
-    if (q.explanation) { const x = document.createElement("div"); x.className = "explain"; x.textContent = q.explanation; d.appendChild(x); }
+    const explain = explanationOf(q);
+    if (explain) { const x = document.createElement("div"); x.className = "explain"; x.textContent = explain; d.appendChild(x); }
     // The পড়াশোনা site ranks its note lines by the words they share with this question and answer.
     const read = document.createElement("a");
     read.className = "readlink"; read.target = "_blank"; read.rel = "noopener";
@@ -791,8 +803,8 @@ function renderHistoryList(h) {
     const when = new Date(x.date), sets = Array.isArray(x.sets) ? x.sets : [];
     const subj = SUBJECTS.map(s => { const v = x.subj && x.subj[s]; return Array.isArray(v) && v[1] ? `<span>${LABEL[s]} <b>${pct(v[0], v[1])}</b></span>` : ""; }).join("");
     return `<li class="hitem"><div class="hmain">` +
-      `<div class="htitle">${esc(isNaN(when) ? "" : when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}${x.mode === "mistakes" ? '<span class="chip plain">Mistakes</span>' : x.mode === "shared" ? '<span class="chip plain">From a friend</span>' : ""}${subjectsLabel(x.subjects) ? `<span class="chip plain">${esc(subjectsLabel(x.subjects))}</span>` : ""}</div>` +
-      `<div class="hsets">${sets.map(setChip).join("")}</div>${subj ? `<div class="hsubj">${subj}</div>` : ""}</div>` +
+      `<div class="htitle">${esc(isNaN(when) ? "" : when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}${x.mode === "mistakes" ? '<span class="chip plain">Mistakes</span>' : x.mode === "shared" ? '<span class="chip plain">From a friend</span>' : ""}${subjectsLabel(x.subjects) && !x.title ? `<span class="chip plain">${esc(subjectsLabel(x.subjects))}</span>` : ""}</div>` +
+      `<div class="hsets">${x.title ? `<span class="chip plain">${esc(x.title)}</span>` : sets.map(setChip).join("")}</div>${subj ? `<div class="hsubj">${subj}</div>` : ""}</div>` +
       `<div class="hscore"><b>${pct(Number(x.score), Number(x.total))}</b><span>${esc(x.score)}/${esc(x.total)} · ${fmt(Number(x.secs) || 0)}</span>` +
       `${x.neg ? `<span>${esc(x.marks)} marks</span>` : ""}</div></li>`;
   }).join("");

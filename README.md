@@ -8,8 +8,10 @@ A static practice-exam site. It needs no server and no build step. Open `index.h
 index.html      page layout
 style.css       look (light and dark mode)
 app.js          all the logic
+subjects-demo.js  the Subjects tab (exams on chosen topics)
 data/index.js   list of question sets shown on the page
 data/*.js       one file per exam part, e.g. school-18.js
+data/topics-math.js  Math topics and worked solutions, collected from the পড়াশোনা notes
 sw.js           offline support (keeps a copy of the site on the device)
 manifest.webmanifest, icons/   lets phones install it like an app
 ```
@@ -50,6 +52,14 @@ manifest.webmanifest, icons/   lets phones install it like an app
 Name each file `<level>-<exam number>.js`, where the level is `school`, `school2` (স্কুল পর্যায়-২) or `college`, e.g. `school2-15.js`. The set picker shows them as a grid: one row per exam (newest first), one column per level. Click a row label (e.g. "15th") to pick that exam's three papers, or "All" under a column to pick a whole level. Files with other names still work; they're listed under the grid.
 
 BCS preliminary papers are named `bcs-<exam number>.js`, e.g. `bcs-50.js`. They hold only the subjects that help NTRCA preparation: Bengali, English, Math, and Bangladesh affairs, international affairs, science and ICT counted as `gk`. They're shown in their own BCS row under the grid, and the Files tab doesn't expect 25 per subject for them.
+
+## Subjects tab (topic exams)
+
+The **Subjects** tab makes an exam from the topics you tick in one subject. It shows how many questions each topic has and how you did on them.
+
+For Math, the topics come from `data/topics-math.js`, collected from the পড়াশোনা site's math notes (13 Nov 2026). Each note is a topic, and each part of its "বিগত পরীক্ষার প্রশ্ন" section is a sub-topic that lists question ids from the data files. The file also holds each note's worked solution. The review shows it under the question in every exam, not only topic exams. The লগারিদম and গড় notes have no MCQs, so those topics are empty, and questions that no note solves aren't in any topic.
+
+GK, English and Bengali still show made-up examples there.
 
 ## Putting it on GitHub Pages
 
