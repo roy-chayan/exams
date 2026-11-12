@@ -47,6 +47,7 @@
     </div>
     <nav class="tabs" id="tabs" aria-label="Sections">
       <button type="button" data-tab="practice">Practice</button>
+      <button type="button" data-tab="subjects">Subjects</button>
       <button type="button" data-tab="progress">Progress</button>
       <button type="button" data-tab="files">Files<span class="dot hidden" id="filesDot"></span></button>
     </nav>
@@ -142,6 +143,58 @@
         <p class="plannote hidden" id="planNote"></p>
         <div id="setupWarn" class="note warn hidden"></div>
         <button type="button" class="btn primary lg block" id="startBtn">Start exam</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SUBJECTS: an exam on chosen topics of one subject (subjects-demo.js). Only Math has real topics so far. -->
+  <section id="subjects" class="hidden">
+    <div class="note warn"><b>Work in progress:</b> Math uses your real questions and scores, sorted into the topics of the পড়াশোনা math notes, and its exams work. GK, English and Bengali are still made-up examples.</div>
+    <div class="card">
+      <div class="cardhead"><h2 class="cardtitle">Choose a subject</h2><span class="muted">Your accuracy in each subject</span></div>
+      <div class="sx-subjects" id="sxSubjects"></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><h2 class="cardtitle" id="sxTopicTitle">Topics</h2><span class="muted" id="sxSource"></span></div>
+      <div class="sx-quick" id="sxQuick">Quick pick:
+        <button type="button" class="pill" data-quick="all">All topics</button>
+        <button type="button" class="pill" data-quick="weak">Weak (below 50%)</button>
+        <button type="button" class="pill" data-quick="fresh">Not practised</button>
+        <button type="button" class="pill" data-quick="none">None</button>
+      </div>
+      <div id="sxTopics"></div>
+    </div>
+    <div class="card" id="sxSettings">
+      <div class="cardhead"><h2 class="cardtitle">Exam settings</h2></div>
+      <div class="field">
+        <span>Questions from</span>
+        <div class="seg" role="radiogroup" aria-label="Questions from">
+          <label><input type="radio" name="sxsrc" value="ntrca" checked><span>NTRCA papers</span></label>
+          <label><input type="radio" name="sxsrc" value="bcs"><span>NTRCA + BCS</span></label>
+        </div>
+      </div>
+      <div class="field block">
+        <span>Questions</span>
+        <div class="seg" role="radiogroup" aria-label="Questions">
+          <label><input type="radio" name="sxn" value="10"><span>10</span></label>
+          <label><input type="radio" name="sxn" value="25" checked><span>25</span></label>
+          <label><input type="radio" name="sxn" value="50"><span>50</span></label>
+          <label><input type="radio" name="sxn" value="100"><span>100</span></label>
+        </div>
+      </div>
+      <div class="field block">
+        <span>Pick questions</span>
+        <div class="seg" role="radiogroup" aria-label="Pick questions">
+          <label><input type="radio" name="sxmode" value="random" checked><span>Random</span></label>
+          <label><input type="radio" name="sxmode" value="fresh"><span>Unseen first</span></label>
+          <label><input type="radio" name="sxmode" value="mistakes"><span>My mistakes</span></label>
+        </div>
+      </div>
+      <div class="startbox">
+        <div class="selline" id="sxSel"></div>
+        <div class="plan" id="sxPlan"></div>
+        <div id="sxNote" class="note warn hidden"></div>
+        <button type="button" class="btn primary lg block" id="sxStart">Start exam</button>
       </div>
     </div>
   </section>
@@ -261,5 +314,7 @@
 </div>
 
 <script src="app.js"></script>
+<script src="data/topics-math.js"></script>
+<script src="subjects-demo.js"></script>
 </body>
 </html>

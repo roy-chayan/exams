@@ -5,7 +5,7 @@
    so they can offer a "Refresh". Bump CACHE only to throw away everything that was saved. */
 const CACHE = "ntrca-v1";
 const FONTS = "ntrca-fonts-v2";   // v2: Bengali font changed from Hind Siliguri to Noto Sans Bengali
-const SHELL = ["index.html", "app.js", "style.css", "manifest.webmanifest", "data/index.js",
+const SHELL = ["index.html", "app.js", "subjects-demo.js", "style.css", "manifest.webmanifest", "data/index.js", "data/topics-math.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "apple-touch-icon.png"];
 
 const scoped = path => new URL(path, self.registration.scope).href;
