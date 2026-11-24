@@ -9,6 +9,7 @@ index.html      page layout
 style.css       look (light and dark mode)
 app.js          all the logic
 subjects-demo.js  the Subjects tab (exams on chosen topics)
+rapid.js        rapid fire (a few seconds a question, with sounds)
 data/index.js   list of question sets shown on the page
 data/*.js       one file per exam part, e.g. school-18.js
 data/topics-math.js  Math topics and worked solutions, collected from the পড়াশোনা notes
@@ -60,6 +61,14 @@ The **Subjects** tab makes an exam from the topics you tick in one subject. It s
 For Math, the topics come from `data/topics-math.js`, collected from the পড়াশোনা site's math notes (13 Nov 2026). Each note is a topic, and each part of its "বিগত পরীক্ষার প্রশ্ন" section is a sub-topic that lists question ids from the data files. The file also holds each note's worked solution. The review shows it under the question in every exam, not only topic exams. The লগারিদম and গড় notes have no MCQs, so those topics are empty, and questions that no note solves aren't in any topic.
 
 GK, English and Bengali still show made-up examples there.
+
+## Rapid fire
+
+Choose **Rapid fire** under **Exam type** in Exam settings. Each question gets a few seconds (**Seconds each**, 5 to start with); every second ticks and the last one beeps. When the time runs out, the correct answer is marked with its own sound and the next question comes. A tapped answer sounds right or wrong and shows the correct one. There is no minus mark and no going back; **Pause** (or Space) stops the clock and hides the question. Math starts unticked, since most Math questions need working out; tick it to include it.
+
+It ends on the usual result screen. A question that ran out counts as Skipped and goes into **My mistakes** like any other. Progress lists rapid-fire rounds with the other exams but leaves them out of "By subject", so quick guesses don't pull the accuracy down.
+
+The sounds are made by the browser, so there are no sound files. To change one, edit `SOUND` in `rapid.js`; each sound is one or two short tones (pitch, length, loudness).
 
 ## Putting it on GitHub Pages
 

@@ -23,7 +23,7 @@ const MODE_HELP = {
 };
 const FILTERS = [["all", "All"], ["w", "Wrong"], ["u", "Skipped"], ["f", "Marked"]];
 const RESULT_LABEL = { r: "Correct", w: "Wrong", u: "Skipped" };
-const SCREENS = ["practice", "subjects", "progress", "files", "exam", "result"];
+const SCREENS = ["practice", "subjects", "progress", "files", "exam", "rapid", "result"];   // rapid: rapid.js
 const BOOK_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>';
 // The পড়াশোনা site (notes and previous papers) sits next to this one on roy-chayan.github.io.
 const STUDY_URL = "../study/index.html";
@@ -70,10 +70,10 @@ function countBySubject(questions) {
 /* ---------- screens ---------- */
 function showScreen(name) {
   SCREENS.forEach(s => show(s, s === name));
-  document.body.classList.toggle("in-exam", name === "exam");
+  document.body.classList.toggle("in-exam", name === "exam" || name === "rapid");
   const tab = name === "result" ? "practice" : name;
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
-  if (updateReady) show("updateBar", name !== "exam");  // don't interrupt an exam with "Refresh"
+  if (updateReady) show("updateBar", name !== "exam" && name !== "rapid");  // don't interrupt an exam with "Refresh"
   window.scrollTo(0, 0);
 }
 
@@ -412,12 +412,14 @@ function renderPlan() {
   $("selLine").innerHTML = sel.length ? selectionLine(sel) : "Choose at least one question set above.";
   $("startBtn").disabled = !lastPool;
   const { by, stats, mode } = lastPool || {};
+  // Rapid fire (rapid.js) gives each question a few seconds instead of one clock for the exam.
+  const time = window.NTRCA_RAPID && NTRCA_RAPID.on() ? NTRCA_RAPID.plan : count => plural(mins, "minute");
   let parts = k === 1 ? [plural(n, `${LABEL[subjects[0]]} question`)] : [plural(n, "question"), `${base === top ? base : `${base}–${top}`} per subject`];
   if (lastPool && mode === "mistakes") {
     const total = subjects.reduce((t, s) => t + by[s].length, 0);
     parts = [!total ? "No past mistakes in these sets" : total < n ? `${plural(total, "question")}: all your past mistakes` : `${plural(n, "question")} from ${total} past mistakes`];
-    if (total) parts.push(plural(mins, "minute"));
-  } else parts.push(plural(mins, "minute"));
+    if (total) parts.push(time(Math.min(total, n)));
+  } else parts.push(time(n));
   $("plan").innerHTML = parts.map(p => `<span>${esc(p)}</span>`).join(" · ");   // on a phone, the line breaks between parts only
 
   const short = lastPool && mode !== "mistakes" ? subjects.filter(s => by[s].length < base) : [];
@@ -659,7 +661,8 @@ function finish(auto) {
     if (msg && !confirm(`You have ${msg}. Submit anyway?`)) return;
   }
   clearInterval(tick);
-  const e = exam; exam = null; store.del(KEY.current);
+  const e = exam; exam = null;
+  if (!e.rapid) store.del(KEY.current);   // a rapid-fire round was never saved there, and an unfinished exam may be
 
   const stats = getStats(), sub = {}, res = [];
   SUBJECTS.forEach(s => (sub[s] = { r: 0, w: 0, u: 0, t: 0 }));
@@ -679,12 +682,14 @@ function finish(auto) {
   if (subjectsLabel(e.subjects)) entry.subjects = e.subjects;
   if (e.title) entry.title = e.title;   // topic exams from the Subjects tab, e.g. "Math: সমাস, সন্ধি"
   if (e.friend) entry.friend = e.friend;
+  if (e.rapid) entry.rapid = e.rapid;   // seconds per question
   const h = getHistory(); h.unshift(entry); store.set(KEY.history, h.slice(0, HISTORY_MAX));
 
   showScreen("result");
   $("heroPct").textContent = pct(right, entry.total);
   const f = e.friend, ahead = f ? right - f.right : 0;
   $("heroSub").textContent = `${right} of ${entry.total} correct` + (subjectsLabel(e.subjects) ? ` · ${subjectsLabel(e.subjects)}` : "") +
+    (e.rapid ? ` · Rapid fire, ${e.rapid} s each` : "") +
     (!f ? "" : ahead > 0 ? ` · ${ahead} more than your friend` : ahead < 0 ? ` · ${-ahead} behind your friend` : " · same as your friend");
   $("heroStats").innerHTML = [
     `<span class="pill">Wrong <b>${wrong}</b></span>`,
@@ -693,7 +698,7 @@ function finish(auto) {
     `<span class="pill">Time <b>${fmt(entry.secs)}</b> <span class="sub">of ${fmt(Math.round((e.endAt - e.startedAt) / 1000))}</span></span>`,
     f ? `<span class="pill">Friend <b>${f.right}/${f.total}</b></span>` : ""
   ].join("");
-  show("shareBtn", !!shareLink(e, right));
+  show("shareBtn", !e.rapid && !!shareLink(e, right));   // a shared link opens as a normal exam, so not for rapid fire
   $("resTiles").innerHTML = `<div class="stats">${SUBJECTS.filter(s => sub[s].t).map(s =>
     statTile(LABEL[s], sub[s].r, sub[s].t, `<div class="stat-foot">${sub[s].r} of ${sub[s].t} correct</div>`)).join("")}</div>`;
   review = { e, res }; reviewFilter = res.includes("w") ? "w" : "all"; renderReview();
@@ -753,16 +758,17 @@ function renderReview() {
 /* ---------- progress ---------- */
 function renderProgress() {
   const h = getHistory();
-  renderSubjects(h.filter(x => x.mode !== "mistakes"));
+  renderSubjects(h.filter(x => x.mode !== "mistakes" && x.mode !== "rapid"), h.length);   // quick guesses would pull the accuracy down
   renderHistoryList(h);
 }
 
-function renderSubjects(h) {
+function renderSubjects(h, saved = h.length) {
   const box = $("subjSummary"), list = h.filter(x => x.subj && typeof x.subj === "object");
   if (!list.length) {
     $("subjNote").textContent = "";
     box.innerHTML = h.length
       ? '<p class="empty">Subject scores are saved from your next exam on.</p>'
+      : saved ? '<p class="empty">Rapid fire and “My mistakes” exams aren’t counted here. Your subject scores show up after a normal exam.</p>'
       : '<p class="empty">No exams yet. Your subject scores will show up here.<br><button type="button" class="btn primary sm" data-goto="practice" style="margin-top:14px">Start practising</button></p>';
     return;
   }
@@ -803,7 +809,7 @@ function renderHistoryList(h) {
     const when = new Date(x.date), sets = Array.isArray(x.sets) ? x.sets : [];
     const subj = SUBJECTS.map(s => { const v = x.subj && x.subj[s]; return Array.isArray(v) && v[1] ? `<span>${LABEL[s]} <b>${pct(v[0], v[1])}</b></span>` : ""; }).join("");
     return `<li class="hitem"><div class="hmain">` +
-      `<div class="htitle">${esc(isNaN(when) ? "" : when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}${x.mode === "mistakes" ? '<span class="chip plain">Mistakes</span>' : x.mode === "shared" ? '<span class="chip plain">From a friend</span>' : ""}${subjectsLabel(x.subjects) && !x.title ? `<span class="chip plain">${esc(subjectsLabel(x.subjects))}</span>` : ""}</div>` +
+      `<div class="htitle">${esc(isNaN(when) ? "" : when.toLocaleString([], { dateStyle: "medium", timeStyle: "short" }))}${x.mode === "mistakes" ? '<span class="chip plain">Mistakes</span>' : x.mode === "rapid" ? `<span class="chip plain">Rapid fire${x.rapid ? ` · ${esc(x.rapid)}s` : ""}</span>` : x.mode === "shared" ? '<span class="chip plain">From a friend</span>' : ""}${subjectsLabel(x.subjects) && !x.title ? `<span class="chip plain">${esc(subjectsLabel(x.subjects))}</span>` : ""}</div>` +
       `<div class="hsets">${x.title ? `<span class="chip plain">${esc(x.title)}</span>` : sets.map(setChip).join("")}</div>${subj ? `<div class="hsubj">${subj}</div>` : ""}</div>` +
       `<div class="hscore"><b>${pct(Number(x.score), Number(x.total))}</b><span>${esc(x.score)}/${esc(x.total)} · ${fmt(Number(x.secs) || 0)}</span>` +
       `${x.neg ? `<span>${esc(x.marks)} marks</span>` : ""}</div></li>`;
