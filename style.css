@@ -369,3 +369,27 @@ button.pill:hover{border-color:var(--brand);color:var(--ink)}
   .sx-tlist{grid-template-columns:minmax(0,1fr)}
 }
 @media (max-width:420px){ .tabs button{padding:7px 4px} }
+
+/* ---------- rapid fire (rapid.js) ---------- */
+.etype{margin-bottom:18px}
+.rf-soundrow{display:flex;align-items:center;flex-wrap:wrap;gap:0 14px}
+.rf-soundrow .textbtn{margin-top:16px}
+.rf-score{font-size:14px;color:var(--ink-2);white-space:nowrap}
+.rf-score b{font-size:16px;color:var(--good)}
+/* The seconds: a ring that empties, at the top right of the question card */
+.rf-timer{position:relative;flex:none;width:56px;height:56px}
+.rf-timer svg{width:100%;height:100%;transform:rotate(-90deg)}
+.rf-track{fill:none;stroke:var(--line);stroke-width:4}
+.rf-ring{fill:none;stroke:var(--brand);stroke-width:4;stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:0}
+.rf-ring.run{animation:rf-ring 5s linear forwards}
+.rf-ring.stop,#rapid.paused .rf-ring{animation-play-state:paused}
+@keyframes rf-ring{to{stroke-dashoffset:100}}
+.rf-timer b{position:absolute;inset:0;display:grid;place-items:center;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+#rapid.low .rf-ring{stroke:var(--bad)}
+#rapid.low .rf-timer b{color:var(--bad);animation:rf-pulse .5s ease-in-out 2}
+@keyframes rf-pulse{50%{transform:scale(1.15)}}
+#rapid .qhead{margin-bottom:10px}
+#rapid.paused .rf-q{filter:blur(8px);pointer-events:none;user-select:none}
+.rf-paused{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 14px;background:var(--brand-soft);border-color:var(--brand-soft-2)}
+#rapid .examfoot .switch{margin-top:0}
+@media (prefers-reduced-motion:reduce){.rf-ring.run,#rapid.low .rf-timer b{animation:none}}

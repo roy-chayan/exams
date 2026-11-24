@@ -104,10 +104,20 @@
 
     <div class="card">
       <div class="cardhead"><h2 class="cardtitle">Exam settings</h2></div>
+      <!-- Normal: one clock for the whole exam. Rapid fire (rapid.js): a few seconds a question, with sounds. -->
+      <div class="field etype">
+        <span>Exam type</span>
+        <div class="seg" role="radiogroup" aria-label="Exam type">
+          <label><input type="radio" name="etype" value="normal" checked><span>Normal</span></label>
+          <label><input type="radio" name="etype" value="rapid"><span>Rapid fire</span></label>
+        </div>
+        <p class="hint hidden" id="etypeHelp"></p>
+      </div>
       <div class="fields">
         <label class="field"><span>Questions</span><input class="input" id="count" type="number" min="1" inputmode="numeric" value="20"></label>
-        <label class="field"><span>Minutes</span><input class="input" id="mins" type="number" min="1" inputmode="numeric" value="20"></label>
-        <label class="field"><span>Minus mark</span>
+        <label class="field" id="minsField"><span>Minutes</span><input class="input" id="mins" type="number" min="1" inputmode="numeric" value="20"></label>
+        <label class="field hidden" id="secsField"><span>Seconds each</span><input class="input" id="secs" type="number" min="2" max="60" inputmode="numeric" value="5"></label>
+        <label class="field" id="negField"><span>Minus mark</span>
           <select class="input" id="neg">
             <option value="0">None</option>
             <option value="0.25">−0.25</option>
@@ -125,6 +135,7 @@
           <label class="subjchip"><input type="checkbox" value="bengali" checked><span>Bengali<small class="cnt"></small></span></label>
         </div>
         <p class="hint hidden" id="subjHelp"></p>
+        <p class="hint hidden" id="rfMathHint">Math is left out of rapid fire: most Math questions need working out. Tick it to include it.</p>
       </div>
       <div class="field block">
         <span>Pick questions</span>
@@ -136,6 +147,10 @@
         <p class="hint hidden" id="modeHelp"></p>
       </div>
       <label class="switch"><input type="checkbox" id="group"><span class="track"></span>Group questions by subject</label>
+      <div class="rf-soundrow hidden" id="rfSoundRow">
+        <label class="switch"><input type="checkbox" id="rfSound" checked><span class="track"></span>Sound</label>
+        <button type="button" class="textbtn" id="rfTest">Test sound</button>
+      </div>
 
       <div class="startbox">
         <div class="selline" id="selLine"></div>
@@ -285,6 +300,42 @@
     </div>
   </section>
 
+  <!-- RAPID FIRE (rapid.js): a few seconds a question. Each second ticks, the last one beeps; when the time runs out the
+       correct answer is marked with its own sound and the next question comes. It ends on the result screen below. -->
+  <section id="rapid" class="hidden">
+    <div class="exambar">
+      <div class="exambar-in">
+        <div class="qcount">Question <b id="rfNum">1</b> of <span id="rfTotal">0</span></div>
+        <div class="rf-score">Correct <b id="rfRight">0</b></div>
+        <button type="button" class="btn ghost sm" id="rfPause">Pause</button>
+      </div>
+      <div class="pbar"><span id="rfBar"></span></div>
+    </div>
+
+    <div class="note rf-paused hidden" id="rfPaused"><span>Paused. The question is hidden until you go on.</span>
+      <button type="button" class="btn primary sm" id="rfResume">Resume</button></div>
+
+    <article class="card qcard" id="rfCard">
+      <div class="qhead">
+        <span class="chip" id="rfTag"></span>
+        <div class="rf-timer" aria-hidden="true">
+          <svg viewBox="0 0 44 44"><circle class="rf-track" cx="22" cy="22" r="19"/><circle class="rf-ring" id="rfRing" cx="22" cy="22" r="19" pathLength="100"/></svg>
+          <b id="rfSec"></b>
+        </div>
+      </div>
+      <div class="rf-q">
+        <h2 class="qtext" id="rfText"></h2>
+        <div class="opts" id="rfOpts"></div>
+      </div>
+    </article>
+
+    <div class="examfoot">
+      <button type="button" class="textbtn danger" id="rfEnd">End here</button>
+      <label class="switch rf-snd"><input type="checkbox" id="rfSound2"><span class="track"></span>Sound</label>
+      <span class="keys">Keys: 1–4 or A–D answer · Space pause</span>
+    </div>
+  </section>
+
   <!-- RESULT -->
   <section id="result" class="hidden">
     <div class="card hero">
@@ -316,5 +367,6 @@
 <script src="app.js"></script>
 <script src="data/topics-math.js"></script>
 <script src="subjects-demo.js"></script>
+<script src="rapid.js"></script>
 </body>
 </html>
